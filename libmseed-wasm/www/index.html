@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>libmseed WASM demo</title>
+<style>
+  :root { color-scheme: light dark; font-family: system-ui, sans-serif; }
+  body { max-width: 72rem; margin: 0 auto; padding: 1rem; }
+  #drop { border: 2px dashed #888; border-radius: 8px; padding: 1.5rem; text-align: center; }
+  #drop.over { background: #8883; }
+  button { margin: .25rem; }
+  pre { background: #8881; padding: .75rem; overflow-x: auto; font-size: .8rem; }
+  table { border-collapse: collapse; font-size: .8rem; width: 100%; }
+  th, td { border-bottom: 1px solid #8884; padding: .2rem .5rem; text-align: left; white-space: nowrap; }
+  .scroll { overflow-x: auto; max-height: 24rem; }
+  canvas { width: 100%; height: 200px; border: 1px solid #8884; }
+  .err { color: #d33; }
+</style>
+</head>
+<body>
+<h1>libmseed WASM demo</h1>
+<p id="version">Loading WebAssembly…</p>
+
+<div id="drop">
+  Drop miniSEED files here, or <input type="file" id="file" multiple>
+  <div>
+    <button id="sample">Load sample (int32, miniSEED 3)</button>
+    <button id="pack">Pack round-trip test</button>
+  </div>
+</div>
+
+<p id="status"></p>
+<h2>Plot (first segment)</h2>
+<canvas id="plot" width="1200" height="200"></canvas>
+<h2>Trace list</h2>
+<pre id="summary"></pre>
+<div class="scroll"><table id="segments"></table></div>
+<h2>Records</h2>
+<div class="scroll"><table id="records"></table></div>
+
+<script type="module">
+// Built with: wasm-pack build libmseed-wasm --target web --out-dir pkg-web --out-name libmseed
+import init, { version, parseRecords, TraceList, packInt32 } from "../pkg-web/libmseed.js";
+
+const $ = (id) => document.getElementById(id);
+const status = (msg, isErr = false) => { $("status").textContent = msg; $("status").className = isErr ? "err" : ""; };
+
+try {
+  await init();
+  $("version").textContent = `libmseed ${version()}`;
+} catch (e) {
+  $("version").innerHTML = `<span class="err">Failed to load ../pkg-web/libmseed.js: ${e}. ` +
+    `Build it first and serve the repository root over HTTP (see libmseed-wasm/README.md).</span>`;
+  throw e;
+}
+
+function table(el, headers, rows) {
+  el.innerHTML = "";
+  const tr = el.insertRow();
+  for (const h of headers) tr.appendChild(Object.assign(document.createElement("th"), { textContent: h }));
+  for (const row of rows) {
+    const r = el.insertRow();
+    for (const v of row) r.insertCell().textContent = v;
+  }
+}
+
+function samplesOf(x) {
+  return x.samplesInt32() ?? x.samplesFloat32() ?? x.samplesFloat64() ?? null;
+}
+
+function plot(samples) {
+  const c = $("plot"), ctx = c.getContext("2d");
+  ctx.clearRect(0, 0, c.width, c.height);
+  if (!samples || samples.length < 2) return;
+  let min = Infinity, max = -Infinity;
+  for (const v of samples) { if (v < min) min = v; if (v > max) max = v; }
+  const span = max - min || 1;
+  ctx.strokeStyle = "#3a7bd5";
+  ctx.beginPath();
+  for (let i = 0; i < samples.length; i++) {
+    const x = (i / (samples.length - 1)) * c.width;
+    const y = c.height - ((samples[i] - min) / span) * (c.height - 10) - 5;
+    i ? ctx.lineTo(x, y) : ctx.moveTo(x, y);
+  }
+  ctx.stroke();
+}
+
+function show(bytes, label) {
+  const t0 = performance.now();
+
+  const traces = new TraceList();
+  const nrec = traces.addBuffer(bytes, true);
+  $("summary").textContent = traces.summary();
+
+  const segRows = [];
+  let first = null;
+  const sids = traces.sids();
+  for (let i = 0; i < traces.numIds; i++) {
+    for (let j = 0; j < traces.numSegments(i); j++) {
+      const s = traces.segment(i, j);
+      segRows.push([sids[i], s.startTime, s.endTime, s.sampleRate, s.sampleCount, s.sampleType]);
+      if (!first && s.sampleType !== "t") first = samplesOf(s);
+      s.free();
+    }
+  }
+  table($("segments"), ["SID", "Start", "End", "Rate", "Samples", "Type"], segRows);
+  plot(first);
+  traces.free();
+
+  const records = parseRecords(bytes, false);
+  table($("records"),
+    ["SID", "Ver", "Pub", "Start", "Rate", "Samples", "Encoding", "Reclen", "Extra headers"],
+    records.map((r) => [r.sid, r.formatVersion, r.pubVersion, r.startTime, r.sampleRate,
+                        r.sampleCount, r.encoding, r.reclen, r.extraHeaders]));
+  records.forEach((r) => r.free());
+
+  status(`${label}: ${bytes.length} bytes, ${nrec} records, ${segRows.length} segments ` +
+         `(${(performance.now() - t0).toFixed(1)} ms)`);
+}
+
+async function handleFiles(files) {
+  for (const f of files) {
+    try { show(new Uint8Array(await f.arrayBuffer()), f.name); }
+    catch (e) { status(`${f.name}: ${e.message ?? e}`, true); }
+  }
+}
+
+$("file").addEventListener("change", (e) => handleFiles(e.target.files));
+const drop = $("drop");
+drop.addEventListener("dragover", (e) => { e.preventDefault(); drop.classList.add("over"); });
+drop.addEventListener("dragleave", () => drop.classList.remove("over"));
+drop.addEventListener("drop", (e) => { e.preventDefault(); drop.classList.remove("over"); handleFiles(e.dataTransfer.files); });
+
+$("sample").addEventListener("click", async () => {
+  const path = "../../tests/data/reference-testdata-int32.mseed3";
+  try {
+    const resp = await fetch(path);
+    if (!resp.ok) throw new Error(`HTTP ${resp.status} (serve the repository root)`);
+    show(new Uint8Array(await resp.arrayBuffer()), path.split("/").pop());
+  } catch (e) { status(`${path}: ${e.message ?? e}`, true); }
+});
+
+$("pack").addEventListener("click", () => {
+  try {
+    const n = 2000;
+    const input = Int32Array.from({ length: n }, (_, i) => Math.round(1000 * Math.sin(i / 50) + i));
+    const bytes = packInt32("FDSN:XX_TEST__B_H_Z", "2024-01-01T00:00:00Z", 40.0, input, 11, 512, false);
+    const records = parseRecords(bytes, true);
+    const out = records.flatMap((r) => Array.from(r.samplesInt32()));
+    records.forEach((r) => r.free());
+    const ok = out.length === n && out.every((v, i) => v === input[i]);
+    show(bytes, "packInt32 output");
+    status(`Pack round-trip: ${n} samples → ${bytes.length} bytes in ${records.length} records → ` +
+           (ok ? "samples match ✓" : "MISMATCH ✗"), !ok);
+  } catch (e) { status(`Pack: ${e.message ?? e}`, true); }
+});
+</script>
+</body>
+</html>

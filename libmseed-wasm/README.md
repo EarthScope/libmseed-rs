@@ -3,6 +3,9 @@
 WebAssembly bindings for [libmseed-rs](https://github.com/EarthScope/libmseed-rs), a pure-Rust
 port of libmseed for reading, writing and managing miniSEED 2 and 3 seismological data.
 
+To try it without writing any code, a browser demo and a Node.js example are included in
+this directory; see [Try it locally](#try-it-locally).
+
 ## npm, with a bundler
 
 The npm package `libmseed` targets bundlers (webpack, Vite, Rollup with a WebAssembly
