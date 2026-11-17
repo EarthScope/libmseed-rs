@@ -45,6 +45,25 @@ Serve the files and initialize the module before use, giving the path of the `.w
 From the `.tar.gz`, where the module is `libmseed_bg.wasm` next to `libmseed.js`,
 `await init()` finds it without a path.
 
+## Prerequisites
+
+Building the WebAssembly module needs, in addition to a Rust toolchain installed with
+[rustup](https://rustup.rs):
+
+- the `wasm32-unknown-unknown` target: `rustup target add wasm32-unknown-unknown`
+- [wasm-pack](https://github.com/wasm-bindgen/wasm-pack): `cargo install wasm-pack`
+  (Homebrew `brew install wasm-pack` and npm `npm install -g wasm-pack` also work)
+
+Check with `wasm-pack --version`. Running the Node.js example also needs Node.js 18 or later,
+and the browser demo needs any static HTTP server (the commands below use Python's).
+
+Nothing has to be built beforehand: `wasm-pack build` compiles the `libmseed` crate along
+with these bindings, generates the JavaScript glue, and writes everything to an output
+directory. Run all `wasm-pack` commands below from the **repository root** (the directory
+containing the top-level `Cargo.toml`), not from `libmseed-wasm/`. The `--out-dir` path is
+relative to the `libmseed-wasm/` crate, so `--out-dir pkg-web` produces
+`libmseed-wasm/pkg-web/`.
+
 ## Building
 
 ```sh
@@ -55,24 +74,47 @@ wasm-pack test --node libmseed-wasm
 
 ## Try it locally
 
-A browser demo (`www/index.html`) loads miniSEED files by drag-and-drop and shows the trace
-list, the records and a plot of the first segment; it also has a sample file and a
-pack/parse round-trip. From the repository root:
+First install the tools listed under [Prerequisites](#prerequisites). Each example is a
+build step followed by a run step; all commands are run from the repository root. There is
+no separate `cargo build` step, since `wasm-pack build` compiles everything it needs (the
+first build takes a minute or so).
+
+### Browser demo
+
+The demo (`www/index.html`) loads miniSEED files by drag-and-drop and shows the trace list,
+the records and a plot of the first segment; it also has a sample file and a pack/parse
+round-trip.
 
 ```sh
+# from the repository root
+
+# 1. Build the module for browsers; writes libmseed-wasm/pkg-web/
 wasm-pack build libmseed-wasm --target web --out-dir pkg-web --out-name libmseed
-python3 -m http.server 8000      # or any static server, run from the repository root
-# open http://localhost:8000/libmseed-wasm/www/
+
+# 2. Serve the repository root over HTTP (Ctrl-C to stop)
+python3 -m http.server 8000
 ```
+
+Then open <http://localhost:8000/libmseed-wasm/www/> in a browser.
 
 The page must be served over HTTP, since browsers do not load WebAssembly from `file://`
-URLs. The server root has to be the repository root so the sample in `tests/data/` is
-reachable.
+URLs. Start the server from the repository root, not from `www/`: the page loads the module
+from `../pkg-web/` and the sample file from `tests/data/`, both outside `www/`. Any static
+server works in place of Python's, e.g. `npx serve -l 8000`.
 
-From Node.js, `examples/node.mjs` prints the records and trace list of the files given, or
-of a test file:
+### Node.js
+
+`examples/node.mjs` prints the records and trace list of the files given, or of a test file
+when given none:
 
 ```sh
+# from the repository root
+
+# 1. Build the module for Node.js; writes libmseed-wasm/pkg-node/
 wasm-pack build libmseed-wasm --target nodejs --out-dir pkg-node --out-name libmseed
+
+# 2. Run the example on one of the test files
 node libmseed-wasm/examples/node.mjs tests/data/reference-testdata-steim2.mseed2
 ```
+
+After changing the Rust code, rerun the build step; the browser page only needs a reload.
