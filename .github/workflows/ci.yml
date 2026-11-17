@@ -22,9 +22,9 @@ jobs:
         include:
           # Minimum supported Rust version, see rust-version in Cargo.toml
           - os: ubuntu-latest
-            toolchain: "1.85"
+            toolchain: "1.88"
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: ${{ matrix.toolchain }}
@@ -38,7 +38,7 @@ jobs:
     name: Test (s390x, big-endian)
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
@@ -51,7 +51,7 @@ jobs:
     name: Lint
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           components: rustfmt, clippy
@@ -69,22 +69,24 @@ jobs:
     name: Dependency audit
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: EmbarkStudios/cargo-deny-action@v2
 
   wasm:
     name: WebAssembly
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: wasm32-unknown-unknown
       - uses: Swatinem/rust-cache@v2
-      - uses: jetli/wasm-pack-action@v0.4.0
-      - uses: actions/setup-node@v4
+      - uses: taiki-e/install-action@v2
         with:
-          node-version: 20
+          tool: wasm-pack
+      - uses: actions/setup-node@v7
+        with:
+          node-version: 24
       - name: Build
         run: wasm-pack build libmseed-wasm --target web --release
       - name: Test (Node)

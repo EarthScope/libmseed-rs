@@ -410,14 +410,13 @@ pub fn glob_match(string: &str, pattern: &str) -> bool {
                     }
                 }
                 b'[' => {
-                    if si < s.len() {
-                        if let Some((m, next)) = match_class(p, pi + 1, s[si]) {
-                            if m {
-                                si += 1;
-                                pi = next;
-                                ok = true;
-                            }
-                        }
+                    if si < s.len()
+                        && let Some((m, next)) = match_class(p, pi + 1, s[si])
+                        && m
+                    {
+                        si += 1;
+                        pi = next;
+                        ok = true;
                     }
                 }
                 b'\\' if pi + 1 < p.len() => {

@@ -431,10 +431,12 @@ fn pack_v2_calibration_abort() {
     );
 
     // A sequence with only an end time is a Blockette 395 alone
-    assert!(pack_v2_with_extra(
-        r#"{"FDSN":{"Calibration":{"Sequence":[{"EndTime":"2024-01-02T03:04:09Z"}]}}}"#
-    )
-    .is_ok());
+    assert!(
+        pack_v2_with_extra(
+            r#"{"FDSN":{"Calibration":{"Sequence":[{"EndTime":"2024-01-02T03:04:09Z"}]}}}"#
+        )
+        .is_ok()
+    );
     // An abort without an end time has no content to write
     assert!(
         pack_v2_with_extra(r#"{"FDSN":{"Calibration":{"Sequence":[{"Type":"ABORT"}]}}}"#).is_err()
@@ -500,11 +502,7 @@ fn trace_list_pack_handler_error_stops() {
             },
             |_| {
                 calls += 1;
-                if calls == 2 {
-                    Err(Error::other("handler failed"))
-                } else {
-                    Ok(())
-                }
+                if calls == 2 { Err(Error::other("handler failed")) } else { Ok(()) }
             },
         )
         .unwrap_err();

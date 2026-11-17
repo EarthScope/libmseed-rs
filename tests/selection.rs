@@ -1,7 +1,7 @@
 //! Port of libmseed test/test-selection.c
 
-use libmseed::selection::Selections;
 use libmseed::NsTime;
+use libmseed::selection::Selections;
 
 fn t(s: &str) -> NsTime {
     NsTime::parse(s).unwrap()
@@ -40,14 +40,15 @@ fn selection_match() {
 
     // Non matches
     assert!(sel.matches("FDSN:YY_STA2__B_H_Z", Some(starttime), Some(endtime), 0).is_none());
-    assert!(sel
-        .matches(
+    assert!(
+        sel.matches(
             "FDSN:YY_STA1__L_H_Z",
             Some(NsTime::from_nanos(0)),
             Some(NsTime::from_nanos(10)),
             0
         )
-        .is_none());
+        .is_none()
+    );
     assert!(sel.matches("FDSN:YY_STA1__L_H_Z", Some(starttime), Some(endtime), 3).is_none());
     assert!(sel.matches("FDSN:ZZ_STA1_LO_H_H_Z", Some(starttime), Some(endtime), 0).is_none());
 }
@@ -103,9 +104,10 @@ fn selection_file_parsing() {
         .matches("FDSN:IU_COLA_00_L_H_Z", Some(t("2010-02-15")), Some(t("2010-02-16")), 2)
         .unwrap();
     assert_eq!(m.selection.pub_version, Some(2));
-    assert!(sel
-        .matches("FDSN:IU_COLA_00_L_H_Z", Some(t("2010-04-15")), Some(t("2010-04-16")), 2)
-        .is_none());
+    assert!(
+        sel.matches("FDSN:IU_COLA_00_L_H_Z", Some(t("2010-04-15")), Some(t("2010-04-16")), 2)
+            .is_none()
+    );
     // A time value in the pubversion position is not parseable
     assert!(Selections::new().add_from_text("IU COLA 00 LHZ 2010-01-01\n", "bad").is_err());
 }

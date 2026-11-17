@@ -171,7 +171,7 @@ pub use pack::{Packed, RecordPacker};
 pub use reader::MsReader;
 pub use record::Record;
 pub use selection::Selections;
-pub use time::{NsTime, NSTMODULUS};
+pub use time::{NSTMODULUS, NsTime};
 pub use tracelist::TraceList;
 
 // Compile the README's Rust snippets as doctests

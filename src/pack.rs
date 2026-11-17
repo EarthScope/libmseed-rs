@@ -8,7 +8,7 @@
 //! [`Record::format_version`] being miniSEED 2. For miniSEED 2 the extra headers
 //! (`/FDSN/...`) are mapped to blockettes where possible.
 
-use crate::codec::{encode::encode, ByteOrder, Samples};
+use crate::codec::{ByteOrder, Samples, encode::encode};
 use crate::crc32c::crc32c;
 use crate::error::{Error, Result};
 use crate::extra::ExtraHeaders;
@@ -16,9 +16,9 @@ use crate::flags::RecordFlags;
 use crate::format::{MS2FSDH_LENGTH, MS3FSDH_LENGTH};
 use crate::lookup::{Encoding, SampleType};
 use crate::options::{FormatVersion, PackOptions};
-use crate::record::{Record, MAXRECLEN, MINRECLEN, PACK_DEFAULT_ENCODING, PACK_DEFAULT_RECLEN};
+use crate::record::{MAXRECLEN, MINRECLEN, PACK_DEFAULT_ENCODING, PACK_DEFAULT_RECLEN, Record};
 use crate::sid::sid_to_nslc;
-use crate::time::{NsTime, NSTMODULUS};
+use crate::time::{NSTMODULUS, NsTime};
 use crate::unpack::nominal_sample_rate;
 use serde_json::Value;
 use std::borrow::Cow;

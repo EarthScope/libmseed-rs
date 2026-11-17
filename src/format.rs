@@ -51,11 +51,7 @@ pub(crate) fn v2_header_order(b: &[u8]) -> ByteOrder {
         return ByteOrder::Big;
     }
     let le = (ByteOrder::Little.u16(&b[20..22]), ByteOrder::Little.u16(&b[22..24]));
-    if is_valid_year_day(le.0, le.1) {
-        ByteOrder::Little
-    } else {
-        ByteOrder::Big
-    }
+    if is_valid_year_day(le.0, le.1) { ByteOrder::Little } else { ByteOrder::Big }
 }
 
 /// Result of record detection.

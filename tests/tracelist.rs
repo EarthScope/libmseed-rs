@@ -6,8 +6,8 @@ use common::data;
 use libmseed::codec::Samples;
 use libmseed::tracelist::RecordLocation;
 use libmseed::{
-    NsTime, ParseFlags, ReadOptions, Record, RecordList, SampleType, Selections, Tolerance,
-    TraceList, TraceListOptions, Versions, NSTMODULUS,
+    NSTMODULUS, NsTime, ParseFlags, ReadOptions, Record, RecordList, SampleType, Selections,
+    Tolerance, TraceList, TraceListOptions, Versions,
 };
 
 fn t(s: &str) -> NsTime {

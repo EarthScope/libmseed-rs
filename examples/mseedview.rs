@@ -124,11 +124,9 @@ fn main() {
                     }
                 }
             }
-            if trace_list {
-                if let Err(e) = traces.add_record(&record) {
-                    eprintln!("Error adding {} to trace list: {e}", record.sid);
-                    failed = true;
-                }
+            if trace_list && let Err(e) = traces.add_record(&record) {
+                eprintln!("Error adding {} to trace list: {e}", record.sid);
+                failed = true;
             }
         }
     }

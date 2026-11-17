@@ -6,7 +6,7 @@
 
 use crate::error::{Error, Result};
 use crate::flags::ParseFlags;
-use crate::record::{Record, MAXRECLEN, MINRECLEN};
+use crate::record::{MAXRECLEN, MINRECLEN, Record};
 use crate::selection::Selections;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
@@ -241,30 +241,29 @@ impl<R: Read> MsReader<R> {
                         need_more = false;
                         let reclen = rec.reclen.expect("parsed record has length");
 
-                        if let Some(sel) = &self.selections {
-                            if sel.matches_record(&rec).is_none() {
-                                self.read_offset += reclen;
-                                self.stream_pos += reclen as u64;
-                                if (self.eof || atrangeend) && self.buflen() < MINRECLEN {
-                                    return Ok(None);
-                                }
-                                continue;
+                        if let Some(sel) = &self.selections
+                            && sel.matches_record(&rec).is_none()
+                        {
+                            self.read_offset += reclen;
+                            self.stream_pos += reclen as u64;
+                            if (self.eof || atrangeend) && self.buflen() < MINRECLEN {
+                                return Ok(None);
                             }
+                            continue;
                         }
                         if self.selections.is_some()
                             && self.flags.contains(ParseFlags::UNPACK_DATA)
                             && rec.sample_count > 0
+                            && let Err(e) = rec.unpack_data()
                         {
-                            if let Err(e) = rec.unpack_data() {
-                                let e = e.context(format_args!(
-                                    "Cannot unpack data samples for record at byte offset {}",
-                                    self.stream_pos
-                                ));
-                                self.parsed_record = true;
-                                self.read_offset += reclen;
-                                self.stream_pos += reclen as u64;
-                                return Err(e);
-                            }
+                            let e = e.context(format_args!(
+                                "Cannot unpack data samples for record at byte offset {}",
+                                self.stream_pos
+                            ));
+                            self.parsed_record = true;
+                            self.read_offset += reclen;
+                            self.stream_pos += reclen as u64;
+                            return Err(e);
                         }
                         self.last_offset = self.stream_pos;
                         self.read_offset += reclen;

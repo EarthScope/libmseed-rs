@@ -9,7 +9,7 @@
 //! arrive and pack full records when they can be created ([`TraceList::pack_with`],
 //! [`TraceListPacker`]), keeping the remainder for later.
 
-use crate::codec::{decode, Samples};
+use crate::codec::{Samples, decode};
 use crate::crc32c::crc32c;
 use crate::error::{Error, Result};
 use crate::flags::ParseFlags;
@@ -17,12 +17,12 @@ use crate::lookup::{Encoding, SampleType};
 use crate::options::{
     FormatVersion, PackOptions, ReadOptions, RecordList, TraceListOptions, Versions,
 };
-use crate::pack::{resolve_encoding, short_of_record, Packed, RecordPacker};
+use crate::pack::{Packed, RecordPacker, resolve_encoding, short_of_record};
 use crate::reader::MsReader;
-use crate::record::{format_g, Record, PACK_DEFAULT_ENCODING, PACK_DEFAULT_RECLEN};
-use crate::time::{NsTime, Subseconds, TimeFormat, NSTMODULUS};
-use std::collections::hash_map::Entry;
+use crate::record::{PACK_DEFAULT_ENCODING, PACK_DEFAULT_RECLEN, Record, format_g};
+use crate::time::{NSTMODULUS, NsTime, Subseconds, TimeFormat};
 use std::collections::HashMap;
+use std::collections::hash_map::Entry;
 use std::fs::File;
 use std::io::{Read, Seek, SeekFrom};
 use std::path::{Path, PathBuf};
@@ -241,7 +241,7 @@ impl TraceSegment {
                 RecordLocation::Unknown => {
                     return Err(Error::InvalidArgument(format!(
                         "{sid}: No buffer or file for record"
-                    )))
+                    )));
                 }
             };
             let data_offset = rp.data_offset.ok_or_else(|| {
@@ -695,14 +695,12 @@ impl TraceList {
                     add_msr_to_seg(&mut id.segments[b], msr, endtime, 1)?;
                     push_recptr(&mut id.segments[b], recptr(&location), 1);
                     // Merge two segments that now fit when autohealing
-                    if autoheal {
-                        if let Some(a) = segafter.filter(|&a| a != b) {
-                            let after = id.segments.remove(a);
-                            if a < b {
-                                b -= 1;
-                            }
-                            add_seg_to_seg(&mut id.segments[b], after)?;
+                    if autoheal && let Some(a) = segafter.filter(|&a| a != b) {
+                        let after = id.segments.remove(a);
+                        if a < b {
+                            b -= 1;
                         }
+                        add_seg_to_seg(&mut id.segments[b], after)?;
                     }
                     seg_idx = b;
                 } else if let Some(a) = segafter {
@@ -792,7 +790,7 @@ impl TraceList {
                 Err(e) => {
                     return Err(
                         e.context(format_args!("Error parsing record at byte offset {offset}"))
-                    )
+                    );
                 }
             };
             let reclen = rec.reclen.expect("parsed record has a length");
@@ -1334,10 +1332,10 @@ impl TraceListPacker {
             if let Some(rec) = self.scan(list, &now_cell, start, list.ids.len(), 0)? {
                 return Ok(Some(rec));
             }
-            if start != head {
-                if let Some(rec) = self.scan(list, &now_cell, head, start, 0)? {
-                    return Ok(Some(rec));
-                }
+            if start != head
+                && let Some(rec) = self.scan(list, &now_cell, head, start, 0)?
+            {
+                return Ok(Some(rec));
             }
         }
         Ok(None)
@@ -1445,10 +1443,18 @@ impl TraceList {
         let TraceListing { time_format: timeformat, details, gaps, versions } = *listing;
         let mut out = String::new();
         out += match (details, gaps) {
-            (true, true) => "       SourceID                      Start sample                End sample           Gap  Hz  Samples\n",
-            (false, true) => "       SourceID                      Start sample                End sample           Gap\n",
-            (true, false) => "       SourceID                      Start sample                End sample           Hz  Samples\n",
-            (false, false) => "       SourceID                      Start sample                End sample\n",
+            (true, true) => {
+                "       SourceID                      Start sample                End sample           Gap  Hz  Samples\n"
+            }
+            (false, true) => {
+                "       SourceID                      Start sample                End sample           Gap\n"
+            }
+            (true, false) => {
+                "       SourceID                      Start sample                End sample           Hz  Samples\n"
+            }
+            (false, false) => {
+                "       SourceID                      Start sample                End sample\n"
+            }
         };
         let (mut tracecnt, mut segcnt) = (0, 0);
         for id in &self.ids {

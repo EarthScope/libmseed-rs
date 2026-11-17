@@ -220,11 +220,7 @@ impl FromStr for NsTime {
 impl From<NsTime> for SystemTime {
     fn from(t: NsTime) -> SystemTime {
         let d = Duration::from_nanos(t.0.unsigned_abs());
-        if t.0 >= 0 {
-            UNIX_EPOCH + d
-        } else {
-            UNIX_EPOCH - d
-        }
+        if t.0 >= 0 { UNIX_EPOCH + d } else { UNIX_EPOCH - d }
     }
 }
 
@@ -323,11 +319,7 @@ fn valid_yday(y: i32, d: i32) -> bool {
     d >= 1 && d <= 365 + is_leap(y) as i32
 }
 fn month_days(y: i32) -> &'static [i32; 12] {
-    if is_leap(y) {
-        &MONTHDAYS_LEAP
-    } else {
-        &MONTHDAYS
-    }
+    if is_leap(y) { &MONTHDAYS_LEAP } else { &MONTHDAYS }
 }
 
 fn err<T>(msg: String) -> Result<T> {
@@ -534,10 +526,10 @@ fn frac_to_nsec(frac: &[u8]) -> u32 {
     for _ in n..9 {
         nsec *= 10;
     }
-    if let Some(c) = it.peek() {
-        if (b'5'..=b'9').contains(c) {
-            nsec += 1;
-        }
+    if let Some(c) = it.peek()
+        && (b'5'..=b'9').contains(c)
+    {
+        nsec += 1;
     }
     nsec
 }

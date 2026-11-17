@@ -1,9 +1,9 @@
 //! Port of libmseed test/test-extraheaders.c
 #![allow(clippy::approx_constant)] // 3.14159 is the value used by the C test
 
-use libmseed::extra::{ExtraHeaders, ValueType};
 use libmseed::NsTime;
 use libmseed::Record;
+use libmseed::extra::{ExtraHeaders, ValueType};
 use serde_json::Value;
 
 const TESTHEADERS: &str = r#"{

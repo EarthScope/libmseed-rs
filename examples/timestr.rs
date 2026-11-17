@@ -2,8 +2,8 @@
 //!
 //! Usage: `cargo run --example timestr -- 2004-05-12T07:08:09.123456789Z [...]`
 
-use libmseed::time::{Subseconds, TimeFormat};
 use libmseed::NsTime;
+use libmseed::time::{Subseconds, TimeFormat};
 
 fn main() {
     let args: Vec<String> = std::env::args().skip(1).collect();

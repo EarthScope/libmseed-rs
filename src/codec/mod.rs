@@ -113,38 +113,22 @@ impl Samples {
     /// Text bytes, if text samples.
     #[must_use]
     pub fn as_text(&self) -> Option<&[u8]> {
-        if let Samples::Text(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Samples::Text(v) = self { Some(v) } else { None }
     }
     /// Integer samples, if 32-bit integers.
     #[must_use]
     pub fn as_i32(&self) -> Option<&[i32]> {
-        if let Samples::Int32(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Samples::Int32(v) = self { Some(v) } else { None }
     }
     /// Float samples, if 32-bit floats.
     #[must_use]
     pub fn as_f32(&self) -> Option<&[f32]> {
-        if let Samples::Float32(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Samples::Float32(v) = self { Some(v) } else { None }
     }
     /// Double samples, if 64-bit floats.
     #[must_use]
     pub fn as_f64(&self) -> Option<&[f64]> {
-        if let Samples::Float64(v) = self {
-            Some(v)
-        } else {
-            None
-        }
+        if let Samples::Float64(v) = self { Some(v) } else { None }
     }
 
     /// Remove and drop the first `n` samples.

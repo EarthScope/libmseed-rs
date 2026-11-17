@@ -6,7 +6,7 @@
 mod common;
 
 use common::*;
-use libmseed::reader::{split_path_range, MsReader};
+use libmseed::reader::{MsReader, split_path_range};
 use libmseed::selection::Selections;
 use libmseed::{
     Encoding, Error, FormatVersion, NsTime, PackOptions, ParseFlags, Record, RecordFlags, Samples,

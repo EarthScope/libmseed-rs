@@ -1,14 +1,21 @@
 [workspace]
 members = [".", "libmseed-wasm"]
 
-[package]
-name = "libmseed"
+[workspace.package]
 version = "0.1.0"
-edition = "2021"
-rust-version = "1.85"
-description = "Pure-Rust, safe port of libmseed: read, write and manage miniSEED 2 and 3 seismological data"
+edition = "2024"
+rust-version = "1.88"
 license = "Apache-2.0"
 repository = "https://github.com/EarthScope/libmseed-rs"
+
+[package]
+name = "libmseed"
+version.workspace = true
+edition.workspace = true
+rust-version.workspace = true
+description = "Pure-Rust, safe port of libmseed: read, write and manage miniSEED 2 and 3 seismological data"
+license.workspace = true
+repository.workspace = true
 readme = "README.md"
 keywords = ["miniseed", "seismology", "seed", "geophysics", "timeseries"]
 categories = ["science", "parser-implementations", "encoding"]

@@ -40,10 +40,10 @@ fn main() {
     // records are read from the file again and the samples are held by the segment.
     if printdata != ' ' {
         for seg in traces.segments_mut() {
-            if seg.record_list.as_ref().is_some_and(|l| !l.is_empty()) {
-                if let Err(e) = seg.unpack_record_list(None) {
-                    eprintln!("Cannot unpack samples: {e}");
-                }
+            if seg.record_list.as_ref().is_some_and(|l| !l.is_empty())
+                && let Err(e) = seg.unpack_record_list(None)
+            {
+                eprintln!("Cannot unpack samples: {e}");
             }
         }
     }
@@ -68,7 +68,9 @@ fn main() {
                         }
                         _ => ("(null)".to_string(), 0),
                     };
-                    println!("    RECORD: bufferptr: NULL, fileptr: NULL, filename: {file}, fileoffset: {offset}");
+                    println!(
+                        "    RECORD: bufferptr: NULL, fileptr: NULL, filename: {file}, fileoffset: {offset}"
+                    );
                     println!("    Start: {}, End: {}", iso(rp.record.start_time), iso(rp.end_time));
                 }
             }

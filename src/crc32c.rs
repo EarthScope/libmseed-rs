@@ -42,8 +42,8 @@ static TABLES: [[u32; 256]; 16] = make_tables();
 pub(crate) fn crc32c(input: &[u8], previous: u32) -> u32 {
     let t = &TABLES;
     let mut crc = !previous;
-    let mut blocks = input.chunks_exact(16);
-    for b in &mut blocks {
+    let (blocks, remainder) = input.as_chunks::<16>();
+    for b in blocks {
         // The CRC is folded into the first four bytes; byte `j` of the block is followed
         // by `15 - j` bytes, so it is looked up in table `15 - j`
         let a = crc ^ u32::from_le_bytes([b[0], b[1], b[2], b[3]]);
@@ -64,7 +64,7 @@ pub(crate) fn crc32c(input: &[u8], previous: u32) -> u32 {
             ^ t[1][b[14] as usize]
             ^ t[0][b[15] as usize];
     }
-    for &b in blocks.remainder() {
+    for &b in remainder {
         crc = (crc >> 8) ^ t[0][((crc as u8) ^ b) as usize];
     }
     !crc

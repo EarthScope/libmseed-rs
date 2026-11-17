@@ -37,13 +37,15 @@ fn nslc_to_sid_cases() {
     assert_eq!(nslc_to_sid(" XX", "TE ST ", "  ", " S ").unwrap(), "FDSN:XX_TEST___S_");
 
     // Too long for a source identifier
-    assert!(nslc_to_sid(
-        "NETWORK",
-        "STATION",
-        "LOCATION",
-        "CHA_NN_EL_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
-    )
-    .is_err());
+    assert!(
+        nslc_to_sid(
+            "NETWORK",
+            "STATION",
+            "LOCATION",
+            "CHA_NN_EL_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+        )
+        .is_err()
+    );
 }
 
 #[test]

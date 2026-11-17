@@ -126,7 +126,7 @@ wasm-pack test --node libmseed-wasm
 
 Branches: work on `develop`, releases are tagged from `main`. Pushes to either run CI;
 publishing a GitHub release publishes to crates.io (and so docs.rs) and npm.
-See [CONTRIBUTING.md](CONTRIBUTING.md). Minimum supported Rust version: 1.85.
+See [CONTRIBUTING.md](CONTRIBUTING.md). Minimum supported Rust version: 1.88.
 
 ## License
 

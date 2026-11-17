@@ -76,16 +76,40 @@ pub(crate) fn decode(
     let samples = match encoding {
         Encoding::TEXT => Samples::Text(input[..samplecount].to_vec()),
         Encoding::INT16 => Samples::Int32(
-            input.chunks_exact(2).take(samplecount).map(|c| order.u16(c) as i16 as i32).collect(),
+            input
+                .as_chunks::<2>()
+                .0
+                .iter()
+                .take(samplecount)
+                .map(|c| order.u16(c) as i16 as i32)
+                .collect(),
         ),
         Encoding::INT32 => Samples::Int32(
-            input.chunks_exact(4).take(samplecount).map(|c| order.u32(c) as i32).collect(),
+            input
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .take(samplecount)
+                .map(|c| order.u32(c) as i32)
+                .collect(),
         ),
         Encoding::FLOAT32 => Samples::Float32(
-            input.chunks_exact(4).take(samplecount).map(|c| f32::from_bits(order.u32(c))).collect(),
+            input
+                .as_chunks::<4>()
+                .0
+                .iter()
+                .take(samplecount)
+                .map(|c| f32::from_bits(order.u32(c)))
+                .collect(),
         ),
         Encoding::FLOAT64 => Samples::Float64(
-            input.chunks_exact(8).take(samplecount).map(|c| f64::from_bits(order.u64(c))).collect(),
+            input
+                .as_chunks::<8>()
+                .0
+                .iter()
+                .take(samplecount)
+                .map(|c| f64::from_bits(order.u64(c)))
+                .collect(),
         ),
         Encoding::STEIM1 => Samples::Int32(steim1(input, samplecount, order, sid)?),
         Encoding::STEIM2 => Samples::Int32(steim2(input, samplecount, order, sid)?),
@@ -96,7 +120,9 @@ pub(crate) fn decode(
         Encoding::SRO => Samples::Int32(sro(input, samplecount, order, sid)?),
         Encoding::DWWSSN => Samples::Int32(
             input
-                .chunks_exact(2)
+                .as_chunks::<2>()
+                .0
+                .iter()
                 .take(samplecount)
                 .map(|c| {
                     let mut s = order.u16(c) as i32;
@@ -231,7 +257,7 @@ fn steim2(input: &[u8], samplecount: usize, order: ByteOrder, sid: &str) -> Resu
                             0 => {
                                 return Err(Error::Steim(format!(
                                     "{sid}: Impossible Steim2 dnib=00 for nibble=10"
-                                )))
+                                )));
                             }
                             1 => diff.push(sext(word & 0x3FFF_FFFF, 30)),
                             2 => {
@@ -265,7 +291,7 @@ fn steim2(input: &[u8], samplecount: usize, order: ByteOrder, sid: &str) -> Resu
                             _ => {
                                 return Err(Error::Steim(format!(
                                     "{sid}: Impossible Steim2 dnib=11 for nibble=11"
-                                )))
+                                )));
                             }
                         }
                     }
@@ -300,7 +326,7 @@ fn geoscope(input: &[u8], samplecount: usize, encoding: Encoding, order: ByteOrd
     let mut out = Vec::with_capacity(samplecount);
     match encoding {
         Encoding::GEOSCOPE24 => {
-            for c in input.chunks_exact(3).take(samplecount) {
+            for c in input.as_chunks::<3>().0.iter().take(samplecount) {
                 let mut mantissa = match order {
                     ByteOrder::Big => (c[0] as i32) << 16 | (c[1] as i32) << 8 | c[2] as i32,
                     ByteOrder::Little => (c[2] as i32) << 16 | (c[1] as i32) << 8 | c[0] as i32,
@@ -312,7 +338,7 @@ fn geoscope(input: &[u8], samplecount: usize, encoding: Encoding, order: ByteOrd
             }
         }
         _ => {
-            for c in input.chunks_exact(2).take(samplecount) {
+            for c in input.as_chunks::<2>().0.iter().take(samplecount) {
                 let s = order.u16(c) as i32;
                 let mantissa = s & 0x0FFF;
                 let gainrange = if encoding == Encoding::GEOSCOPE163 {
@@ -330,7 +356,9 @@ fn geoscope(input: &[u8], samplecount: usize, encoding: Encoding, order: ByteOrd
 
 fn cdsn(input: &[u8], samplecount: usize, order: ByteOrder) -> Vec<i32> {
     input
-        .chunks_exact(2)
+        .as_chunks::<2>()
+        .0
+        .iter()
         .take(samplecount)
         .map(|c| {
             let s = order.u16(c) as i32;
@@ -348,7 +376,7 @@ fn cdsn(input: &[u8], samplecount: usize, order: ByteOrder) -> Vec<i32> {
 
 fn sro(input: &[u8], samplecount: usize, order: ByteOrder, sid: &str) -> Result<Vec<i32>> {
     let mut out = Vec::with_capacity(samplecount);
-    for c in input.chunks_exact(2).take(samplecount) {
+    for c in input.as_chunks::<2>().0.iter().take(samplecount) {
         let s = order.u16(c) as i32;
         let mut mantissa = s & 0x0FFF;
         let gainrange = (s & 0xF000) >> 12;

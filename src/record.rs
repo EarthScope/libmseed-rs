@@ -2,11 +2,11 @@
 
 use crate::codec::{ByteOrder, Samples};
 use crate::error::{Error, Result};
-use crate::extra::{format_extra, ExtraHeaders};
+use crate::extra::{ExtraHeaders, format_extra};
 use crate::flags::RecordFlags;
 use crate::lookup::{Encoding, SampleType};
 use crate::options::FormatVersion;
-use crate::time::{NsTime, Subseconds, TimeFormat, NSTMODULUS};
+use crate::time::{NSTMODULUS, NsTime, Subseconds, TimeFormat};
 use std::fmt;
 
 /// Minimum miniSEED record length supported.
@@ -136,11 +136,7 @@ impl Record {
     /// Sample rate in samples/second regardless of how it is stored.
     #[must_use]
     pub fn sample_rate_hz(&self) -> f64 {
-        if self.sample_rate < 0.0 {
-            -1.0 / self.sample_rate
-        } else {
-            self.sample_rate
-        }
+        if self.sample_rate < 0.0 { -1.0 / self.sample_rate } else { self.sample_rate }
     }
 
     /// Sample period in nanoseconds, rounded; 0 if the sample rate is 0.
@@ -243,7 +239,7 @@ impl Record {
                 (offset, reclen - offset)
             }
             None => {
-                return Err(Error::InvalidRecord(format!("{}: Unknown format version", self.sid)))
+                return Err(Error::InvalidRecord(format!("{}: Unknown format version", self.sid)));
             }
         };
 

@@ -6,13 +6,13 @@ use crate::error::{Error, Result};
 use crate::extra::{Calibration, EventDetection, ExtraHeaders, TimingException};
 use crate::flags::{ParseFlags, RecordFlags};
 use crate::format::{
-    detect, is_valid_header2, is_valid_header3, v2_header_order, MS2FSDH_LENGTH, MS3FSDH_LENGTH,
+    MS2FSDH_LENGTH, MS3FSDH_LENGTH, detect, is_valid_header2, is_valid_header3, v2_header_order,
 };
 use crate::lookup::Encoding;
 use crate::options::FormatVersion;
-use crate::record::{Record, MAXRECLEN, MINRECLEN};
+use crate::record::{MAXRECLEN, MINRECLEN, Record};
 use crate::sid::nslc_to_sid;
-use crate::time::{NsTime, NSTMODULUS};
+use crate::time::{NSTMODULUS, NsTime};
 
 impl Record {
     /// Parse a miniSEED 2 or 3 record from the start of a buffer.
@@ -417,13 +417,17 @@ impl Record {
             }
 
             if next_blkt != 0 && next_blkt < blkt_offset + blkt_length {
-                log::warn!("{}: Offset to next blockette ({next_blkt}) is within current blockette ending at byte {}",
-                        msr.sid,
-                        blkt_offset + blkt_length);
+                log::warn!(
+                    "{}: Offset to next blockette ({next_blkt}) is within current blockette ending at byte {}",
+                    msr.sid,
+                    blkt_offset + blkt_length
+                );
                 blkt_offset = 0;
             } else if next_blkt != 0 && next_blkt > reclen {
-                log::warn!("{}: Offset to next blockette ({next_blkt}) from type {blkt_type} is beyond record length",
-                        msr.sid);
+                log::warn!(
+                    "{}: Offset to next blockette ({next_blkt}) from type {blkt_type} is beyond record length",
+                    msr.sid
+                );
                 blkt_offset = 0;
             } else {
                 blkt_offset = next_blkt;
@@ -437,12 +441,17 @@ impl Record {
 
         let dataoffset = order.u16(&rec[44..46]) as usize;
         if blkt_end != 0 && order.u16(&rec[30..32]) != 0 && dataoffset < blkt_end {
-            log::warn!("{}: Data offset in fixed header ({dataoffset}) is within the blockette chain ending at {blkt_end}",
-                    msr.sid);
+            log::warn!(
+                "{}: Data offset in fixed header ({dataoffset}) is within the blockette chain ending at {blkt_end}",
+                msr.sid
+            );
         }
         if rec[39] as usize != blkt_count {
-            log::warn!("{}: Number of blockettes in fixed header ({}) does not match the number parsed ({blkt_count})",
-                    msr.sid, rec[39]);
+            log::warn!(
+                "{}: Number of blockettes in fixed header ({}) does not match the number parsed ({blkt_count})",
+                msr.sid,
+                rec[39]
+            );
         }
 
         // Start time, rejecting an unset (year 0) or invalid time
