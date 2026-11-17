@@ -76,3 +76,7 @@ jobs:
         run: wasm-pack build libmseed-wasm --target web --release
       - name: Test (Node)
         run: wasm-pack test --node libmseed-wasm
+      - name: Node example
+        run: |
+          wasm-pack build libmseed-wasm --target nodejs --out-dir pkg-node --out-name libmseed
+          node libmseed-wasm/examples/node.mjs tests/data/reference-testdata-steim2.mseed3 tests/data/reference-testdata-text.mseed2

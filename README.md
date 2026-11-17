@@ -113,7 +113,8 @@ import init, { parseRecords } from "./libmseed.js";
 await init({ module_or_path: "./libmseed.wasm" });
 ```
 
-See [`libmseed-wasm`](libmseed-wasm/README.md).
+See [`libmseed-wasm`](libmseed-wasm/README.md), which also describes a browser demo and a
+Node.js example for trying the WebAssembly build locally.
 
 ## Development
 

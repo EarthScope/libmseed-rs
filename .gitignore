@@ -2,6 +2,8 @@
 **/*.rs.bk
 Cargo.lock.bak
 /libmseed-wasm/pkg
+/libmseed-wasm/pkg-web
+/libmseed-wasm/pkg-node
 /pkg
 node_modules
 .DS_Store
