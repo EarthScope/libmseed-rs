@@ -213,6 +213,10 @@ impl FromStr for NsTime {
     }
 }
 
+/// Convert to a [`SystemTime`].
+///
+/// `SystemTime` resolution is platform dependent: nanoseconds on most Unix
+/// systems, but 100 nanoseconds on Windows, where sub-100ns digits are lost.
 impl From<NsTime> for SystemTime {
     fn from(t: NsTime) -> SystemTime {
         let d = Duration::from_nanos(t.0.unsigned_abs());

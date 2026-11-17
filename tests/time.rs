@@ -142,8 +142,13 @@ fn now_and_system_time() {
     assert!(now > NsTime::UNIX_EPOCH);
     assert!(now.as_nanos() - secs * NSTMODULUS < NSTMODULUS + 1_000_000_000);
 
-    let t = NsTime::parse("2004-05-12T7:8:9.123456788Z").unwrap();
+    // SystemTime resolution is platform dependent (100ns on Windows), so an
+    // exact round trip is only guaranteed on a 100ns boundary.
+    let t = NsTime::parse("2004-05-12T7:8:9.1234567Z").unwrap();
     assert_eq!(NsTime::try_from(SystemTime::from(t)).unwrap(), t);
+    let fine = NsTime::parse("2004-05-12T7:8:9.123456788Z").unwrap();
+    let back = NsTime::try_from(SystemTime::from(fine)).unwrap();
+    assert!((back.as_nanos() - fine.as_nanos()).abs() < 100);
     let before = ns(-1_500_000_000);
     assert_eq!(NsTime::try_from(SystemTime::from(before)).unwrap(), before);
 }

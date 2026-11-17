@@ -1,4 +1,4 @@
-# libmseed
+# Rust libmseed
 
 [![CI](https://github.com/EarthScope/libmseed-rs/actions/workflows/ci.yml/badge.svg)](https://github.com/EarthScope/libmseed-rs/actions/workflows/ci.yml)
 [![crates.io](https://img.shields.io/crates/v/libmseed.svg)](https://crates.io/crates/libmseed)
