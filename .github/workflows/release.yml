@@ -48,6 +48,8 @@ jobs:
     name: Publish to crates.io
     needs: verify
     runs-on: ubuntu-latest
+    # Must match the environment in the crates.io Trusted Publishing config
+    environment: crates.io
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
