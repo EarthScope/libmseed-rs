@@ -10,15 +10,11 @@ A pure-Rust port of [libmseed](https://github.com/EarthScope/libmseed) for readi
 and managing [miniSEED](https://docs.fdsn.org/projects/miniSEED3) 2 and 3 seismological time
 series data. **No `unsafe` code**, a compact API in Rust idiom, and a WebAssembly build.
 
-Ported from libmseed **3.5.4**. Its test suite was ported too, including byte-for-byte
-comparisons of written records against the C library's reference files.
-
 ## Features
 
 - Read files and streams record by record, auto-detecting the miniSEED version, record length,
   byte order and encoding, into a format agnostic `Record`
-- Encodings: text, 16/32-bit integer, 32/64-bit float, Steim-1, Steim-2, and the legacy
-  GEOSCOPE, CDSN, SRO and DWWSSN
+- All data encodings are supported
 - Build trace lists by adding records, in any order, with merging and gap healing
 - Rolling-buffer operation: add data to a trace list as it arrives and create full records
   when they can be, keeping the remainder for later; flush idle data
@@ -27,8 +23,6 @@ comparisons of written records against the C library's reference files.
 - Data selections (glob patterns, time windows, publication versions), byte ranges,
   record lists for two-pass reading, leap second handling
 - WebAssembly build published to npm
-
-Not included: reading from URLs (use any HTTP client and `MsReader::new` on the response).
 
 ## Usage
 
@@ -78,23 +72,27 @@ operation, extra headers and differences from the C library.
 
 ## Examples
 
-Ports of libmseed's example programs are in [`examples/`](examples): `timestr`, `sids`,
-`read_buffer`, `read_recordlist`, `read_selection`, `extraheaders` and `pack_rollingbuffer`,
-run with `cargo run --example <name>`. Their output was checked against the C programs
-(where the examples print floating point values themselves they use Rust's shortest form
-rather than C's `%g`; the `Display` output of records and trace lists keeps libmseed's `%g`
-formatting).
-
-For trying the library on your own data, `mseedview` prints each record in one or more files
-(`-p` for full headers, `-pp` to also print samples) and, with `-T` (or `-g` to include gaps),
-the trace list they assemble into; `-d` decodes data payloads (reporting decode errors
-without printing samples), `-n` skips the per-record output, `-s` adds a summary and `-C`
-validates CRCs. A byte range
-can be given as `file@start-end`:
+For trying the library on your own data, the example `mseedview` program prints each
+record in one or more files (`-p` for full headers, `-pp` to also print samples) and,
+with `-T` (or `-g` to include gaps), the trace list they assemble into; `-d` decodes
+data payloads (reporting decode errors without printing samples), `-n` skips the
+per-record output, `-s` adds a summary and `-C` validates CRCs. A byte range can be
+given as `file@start-end`:
 
 ```sh
 cargo run --release --example mseedview -- -p -T data.mseed
 ```
+
+More examples in [`examples/`](examples) show common tasks, run with
+`cargo run --example <name>`:
+
+- `read_buffer`: read miniSEED from a memory buffer into a trace list
+- `read_recordlist`: build a trace list with record lists, optionally decoding data
+- `read_selection`: read a file limited by data selections
+- `pack_rollingbuffer`: add data to a trace list as it arrives and pack full records
+- `extraheaders`: set, get and modify extra headers
+- `sids`: map between FDSN Source Identifiers and network, station, location and channel codes
+- `timestr`: convert time strings to the supported output formats
 
 ## WebAssembly
 
@@ -131,4 +129,4 @@ See [CONTRIBUTING.md](CONTRIBUTING.md). Minimum supported Rust version: 1.85.
 
 ## License
 
-Apache License, Version 2.0, the same as libmseed. See [LICENSE](LICENSE).
+Apache License, Version 2.0. See [LICENSE](LICENSE).
