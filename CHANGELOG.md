@@ -5,6 +5,8 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.2] - 2026-11-17
+
 ### Added
 - Initial port of libmseed 3.5.4 to safe Rust (`#![forbid(unsafe_code)]`).
 - Reading of miniSEED 2 and 3 from files, streams and buffers (`MsReader`, `Record::parse`) with
@@ -51,3 +53,6 @@ versioning: [SemVer](https://semver.org/).
 - miniSEED 2 blockettes 400, 405 and 2000 are discarded with a warning when reading.
 - The embedded leap second list covers announcements through 2023; install a current list
   with `time::read_leap_second_file` for later data.
+
+[Unreleased]: https://github.com/EarthScope/libmseed-rs/compare/v0.1.2...HEAD
+[0.1.2]: https://github.com/EarthScope/libmseed-rs/releases/tag/v0.1.2

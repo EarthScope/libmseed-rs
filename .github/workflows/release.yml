@@ -2,6 +2,7 @@ name: Release
 
 # Runs when a GitHub release is published: tests, then publishes to crates.io (which
 # triggers the docs.rs build) and npm, and attaches libmseed.wasm to the release.
+# Zenodo archives the release separately via its GitHub integration, using CITATION.cff.
 on:
   release:
     types: [published]
@@ -37,6 +38,9 @@ jobs:
           echo "tag=$tag crate=$crate_version wasm=$wasm_version"
           [ "$tag" = "$crate_version" ] || { echo "::error::Tag $tag does not match libmseed $crate_version"; exit 1; }
           [ "$tag" = "$wasm_version" ] || { echo "::error::Tag $tag does not match libmseed-wasm $wasm_version"; exit 1; }
+          cff_version=$(sed -n 's/^version: *"\{0,1\}\([^"]*\)"\{0,1\} *$/\1/p' CITATION.cff)
+          echo "citation=$cff_version"
+          [ "$tag" = "$cff_version" ] || { echo "::error::Tag $tag does not match CITATION.cff $cff_version"; exit 1; }
           echo "version=$tag" >> "$GITHUB_OUTPUT"
       - run: cargo test --workspace --all-targets
       - run: cargo test --workspace --doc

@@ -5,6 +5,7 @@
 [![docs.rs](https://img.shields.io/docsrs/libmseed)](https://docs.rs/libmseed)
 [![npm](https://img.shields.io/npm/v/libmseed.svg)](https://www.npmjs.com/package/libmseed)
 [![License](https://img.shields.io/crates/l/libmseed.svg)](LICENSE)
+[![DOI](https://zenodo.org/badge/1460541977.svg)](https://zenodo.org/badge/latestdoi/1460541977)
 
 A pure-Rust port of [libmseed](https://github.com/EarthScope/libmseed) for reading, writing
 and managing [miniSEED](https://docs.fdsn.org/projects/miniSEED3) 2 and 3 seismological time
@@ -127,6 +128,12 @@ wasm-pack test --node libmseed-wasm
 Branches: work on `develop`, releases are tagged from `main`. Pushes to either run CI;
 publishing a GitHub release publishes to crates.io (and so docs.rs) and npm.
 See [CONTRIBUTING.md](CONTRIBUTING.md). Minimum supported Rust version: 1.88.
+
+## Citing
+
+Each release is archived on [Zenodo](https://zenodo.org) with a DOI (see the badge above).
+Citation metadata is in [CITATION.cff](CITATION.cff); GitHub's "Cite this repository" button
+formats it as APA or BibTeX.
 
 ## License
 

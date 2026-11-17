@@ -1,0 +1,22 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using the metadata from this file."
+type: software
+title: "libmseed-rs: a pure-Rust miniSEED library"
+abstract: >-
+  Pure-Rust, safe port of libmseed: read, write and manage miniSEED 2 and 3
+  seismological data, with a WebAssembly build.
+authors:
+  - family-names: Trabant
+    given-names: Chad
+    affiliation: EarthScope Consortium
+    orcid: "https://orcid.org/0000-0002-6184-3568"
+repository-code: "https://github.com/EarthScope/libmseed-rs"
+license: Apache-2.0
+keywords:
+  - miniseed
+  - seismology
+  - seed
+  - geophysics
+  - timeseries
+version: 0.1.2
+date-released: "2026-11-17"
