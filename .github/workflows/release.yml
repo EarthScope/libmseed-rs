@@ -66,6 +66,8 @@ jobs:
     name: Build and publish WebAssembly
     needs: verify
     runs-on: ubuntu-latest
+    # Must match the environment in the npm Trusted Publishing config
+    environment: npm
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
