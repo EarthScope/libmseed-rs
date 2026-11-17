@@ -51,11 +51,14 @@ jobs:
     steps:
       - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
+      # Trusted publishing: exchanges the GitHub OIDC token for a short-lived crates.io token
+      - uses: rust-lang/crates-io-auth-action@v1
+        id: auth
       # docs.rs builds the documentation automatically once the crate is published,
       # configured by [package.metadata.docs.rs] in Cargo.toml
       - run: cargo publish -p libmseed
         env:
-          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+          CARGO_REGISTRY_TOKEN: ${{ steps.auth.outputs.token }}
 
   wasm:
     name: Build and publish WebAssembly
@@ -94,9 +97,9 @@ jobs:
           cp ../../LICENSE .
       - name: Publish to npm
         working-directory: libmseed-wasm/pkg
-        run: npm publish --access public --provenance
-        env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        # Trusted publishing via OIDC (npm >= 11.5.1). No --provenance: npm only
+        # generates provenance for public repositories.
+        run: npm publish --access public
 
       # Standalone .wasm (with JS glue) for the GitHub release
       - name: Build standalone web target
