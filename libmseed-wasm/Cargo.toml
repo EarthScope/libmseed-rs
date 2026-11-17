@@ -1,0 +1,25 @@
+[package]
+name = "libmseed-wasm"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+description = "WebAssembly bindings for the libmseed miniSEED library"
+license = "Apache-2.0"
+repository = "https://github.com/EarthScope/libmseed-rs"
+readme = "README.md"
+keywords = ["miniseed", "seismology", "wasm"]
+categories = ["wasm", "science"]
+publish = false
+
+[lib]
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+libmseed = { path = ".." }
+wasm-bindgen = "0.2"
+
+[dev-dependencies]
+wasm-bindgen-test = "0.3"
+
+[package.metadata.wasm-pack.profile.release]
+wasm-opt = ["-Oz", "--enable-bulk-memory", "--enable-nontrapping-float-to-int"]

@@ -1,0 +1,44 @@
+[package]
+name = "libmseed-fuzz"
+version = "0.0.0"
+publish = false
+edition = "2021"
+
+[package.metadata]
+cargo-fuzz = true
+
+[dependencies]
+libfuzzer-sys = "0.4"
+libmseed = { path = ".." }
+
+# Not part of the main workspace: built by `cargo fuzz` with a nightly toolchain
+[workspace]
+members = ["."]
+
+[[bin]]
+name = "parse"
+path = "fuzz_targets/parse.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "reader"
+path = "fuzz_targets/reader.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "time"
+path = "fuzz_targets/time.rs"
+test = false
+doc = false
+bench = false
+
+[[bin]]
+name = "pack_roundtrip"
+path = "fuzz_targets/pack_roundtrip.rs"
+test = false
+doc = false
+bench = false

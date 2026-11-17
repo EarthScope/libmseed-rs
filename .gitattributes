@@ -1,0 +1,6 @@
+* text=auto
+*.mseed binary
+*.mseed2 binary
+*.mseed3 binary
+*.next binary
+*.trace text

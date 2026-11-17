@@ -1,0 +1,113 @@
+name: Release
+
+# Runs when a GitHub release is published: tests, then publishes to crates.io (which
+# triggers the docs.rs build) and npm, and attaches libmseed.wasm to the release.
+on:
+  release:
+    types: [published]
+
+env:
+  CARGO_TERM_COLOR: always
+
+permissions:
+  contents: write
+  id-token: write
+
+jobs:
+  verify:
+    name: Verify and test
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - name: Check that the release tag matches the crate version
+        id: version
+        run: |
+          crate_version=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name=="libmseed") | .version')
+          wasm_version=$(cargo metadata --no-deps --format-version 1 \
+            | jq -r '.packages[] | select(.name=="libmseed-wasm") | .version')
+          tag="${GITHUB_REF_NAME#v}"
+          echo "tag=$tag crate=$crate_version wasm=$wasm_version"
+          [ "$tag" = "$crate_version" ] || { echo "::error::Tag $tag does not match libmseed $crate_version"; exit 1; }
+          [ "$tag" = "$wasm_version" ] || { echo "::error::Tag $tag does not match libmseed-wasm $wasm_version"; exit 1; }
+          echo "version=$tag" >> "$GITHUB_OUTPUT"
+      - run: cargo test --workspace --all-targets
+      - run: cargo test --workspace --doc
+      - run: cargo clippy --workspace --all-targets -- -D warnings
+      - name: Packaging dry run
+        run: cargo publish --dry-run -p libmseed
+
+  crates-io:
+    name: Publish to crates.io
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      # docs.rs builds the documentation automatically once the crate is published,
+      # configured by [package.metadata.docs.rs] in Cargo.toml
+      - run: cargo publish -p libmseed
+        env:
+          CARGO_REGISTRY_TOKEN: ${{ secrets.CARGO_REGISTRY_TOKEN }}
+
+  wasm:
+    name: Build and publish WebAssembly
+    needs: verify
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: wasm32-unknown-unknown
+      - uses: Swatinem/rust-cache@v2
+      - uses: jetli/wasm-pack-action@v0.4.0
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          registry-url: https://registry.npmjs.org
+
+      - name: Test (Node)
+        run: wasm-pack test --node libmseed-wasm
+
+      # npm package for bundlers (webpack, vite, ...) and a `web` build for direct browser use
+      - name: Build npm package (bundler target)
+        run: wasm-pack build libmseed-wasm --target bundler --release --out-dir pkg --out-name libmseed
+      - name: Name the npm package libmseed
+        run: |
+          cd libmseed-wasm/pkg
+          jq '.name = "libmseed"
+              | .description = "miniSEED 2 and 3 reading, writing and trace management, compiled from Rust to WebAssembly"
+              | .license = "Apache-2.0"
+              | .repository = {type: "git", url: "https://github.com/EarthScope/libmseed-rs"}
+              | .publishConfig = {registry: "https://registry.npmjs.org/", access: "public"}' \
+            package.json > package.json.new
+          mv package.json.new package.json
+          cp ../../LICENSE .
+      - name: Publish to npm
+        working-directory: libmseed-wasm/pkg
+        run: npm publish --access public --provenance
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+
+      # Standalone .wasm (with JS glue) for the GitHub release
+      - name: Build standalone web target
+        run: wasm-pack build libmseed-wasm --target web --release --out-dir pkg-web --out-name libmseed
+      - name: Collect release assets
+        run: |
+          mkdir release-assets
+          cp libmseed-wasm/pkg-web/libmseed_bg.wasm release-assets/libmseed.wasm
+          cp libmseed-wasm/pkg-web/libmseed.js release-assets/libmseed.js
+          cp libmseed-wasm/pkg-web/libmseed.d.ts release-assets/libmseed.d.ts
+          tar -czf release-assets/libmseed-wasm-${{ needs.verify.outputs.version }}.tar.gz \
+            -C libmseed-wasm/pkg-web .
+      - name: Attach to the GitHub release
+        run: gh release upload "$GITHUB_REF_NAME" release-assets/* --clobber
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}

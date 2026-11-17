@@ -1,0 +1,11 @@
+/target
+**/*.rs.bk
+Cargo.lock.bak
+/libmseed-wasm/pkg
+/pkg
+node_modules
+.DS_Store
+*.swp
+/fuzz/target
+/fuzz/corpus
+/fuzz/artifacts
