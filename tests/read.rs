@@ -93,6 +93,35 @@ fn headeronly_v3() {
     assert_eq!(msr.crc, 0xC22273A9);
 }
 
+#[test]
+fn no_raw() {
+    for name in ["testdata-3channel-signal.mseed2", "testdata-3channel-signal.mseed3"] {
+        let full = read_first(name, ParseFlags::UNPACK_DATA);
+        assert!(full.raw().is_some());
+
+        let mut hdr = read_first(name, ParseFlags::NO_RAW);
+        assert!(hdr.raw().is_none());
+        assert!(hdr.samples.is_none());
+        assert_eq!((&hdr.sid, hdr.start_time, hdr.sample_count), (&full.sid, full.start_time, 135));
+        assert_eq!((hdr.reclen, hdr.crc, &hdr.extra), (full.reclen, full.crc, &full.extra));
+        assert!(hdr.unpack_data().is_err());
+
+        let unpacked = read_first(name, ParseFlags::NO_RAW | ParseFlags::UNPACK_DATA);
+        assert!(unpacked.raw().is_none());
+        assert_eq!(unpacked.samples, full.samples);
+
+        // Unpacking deferred until after selection
+        let mut sel = Selections::new();
+        sel.add("FDSN:IU_COLA_00_L_H_1", None, None, None).unwrap();
+        let mut r = MsReader::open(data(name), ParseFlags::NO_RAW | ParseFlags::UNPACK_DATA)
+            .unwrap()
+            .with_selections(sel);
+        let selected = r.next_record().unwrap().expect("a record");
+        assert!(selected.raw().is_none());
+        assert_eq!(selected.samples, full.samples);
+    }
+}
+
 fn check_encodings(ext: &str, with_le: bool) {
     let flags = ParseFlags::UNPACK_DATA;
     let isine = isinedata();

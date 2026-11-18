@@ -187,6 +187,23 @@ fn readtracelist_selection_nomatch() {
 }
 
 #[test]
+fn readtracelist_no_raw_ignored() {
+    let buffer = std::fs::read(data(MIXED_V2)).unwrap();
+    for flags in [ParseFlags::UNPACK_DATA, ParseFlags::UNPACK_DATA | ParseFlags::NO_RAW] {
+        let options = ReadOptions { skip_adjacent_duplicates: true, ..ReadOptions::new(flags) };
+        let mut from_buffer = TraceList::new();
+        assert_eq!(from_buffer.read_buffer(&buffer, &options).unwrap(), 7);
+        let mut from_file = TraceList::new();
+        assert_eq!(from_file.read_file(data(MIXED_V2), &options).unwrap(), 7);
+        for mstl in [&mut from_buffer, &mut from_file] {
+            let seg = mstl.segments_mut().next().unwrap();
+            assert_eq!(seg.sample_count, 3952);
+            assert_eq!(seg.samples.as_ref().unwrap().len(), 3952);
+        }
+    }
+}
+
+#[test]
 fn readtracelist_timewin() {
     let mut mstl = TraceList::new();
     let mut sel = Selections::new();

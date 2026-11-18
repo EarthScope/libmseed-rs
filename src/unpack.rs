@@ -23,7 +23,8 @@ impl Record {
     /// Returns [`Error::Incomplete`] with a hint of the additional bytes needed if the
     /// buffer holds only part of a record, and [`Error::NotSeed`] if no record is detected.
     ///
-    /// Flags: [`ParseFlags::UNPACK_DATA`], [`ParseFlags::VALIDATE_CRC`] and [`ParseFlags::END_OF_INPUT`].
+    /// Flags: [`ParseFlags::UNPACK_DATA`], [`ParseFlags::VALIDATE_CRC`], [`ParseFlags::NO_RAW`]
+    /// and [`ParseFlags::END_OF_INPUT`].
     pub fn parse(buf: &[u8], flags: ParseFlags) -> Result<Record> {
         let Some(det) = detect(buf) else {
             return Err(Error::NotSeed("no miniSEED record detected".into()));
@@ -159,6 +160,9 @@ impl Record {
 
         if flags.contains(ParseFlags::UNPACK_DATA) && msr.sample_count > 0 {
             msr.unpack_data()?;
+        }
+        if flags.contains(ParseFlags::NO_RAW) {
+            msr.raw = None;
         }
         Ok(msr)
     }
@@ -504,6 +508,9 @@ impl Record {
 
         if flags.contains(ParseFlags::UNPACK_DATA) && msr.sample_count > 0 {
             msr.unpack_data()?;
+        }
+        if flags.contains(ParseFlags::NO_RAW) {
+            msr.raw = None;
         }
         Ok(msr)
     }

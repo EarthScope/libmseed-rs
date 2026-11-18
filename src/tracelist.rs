@@ -776,7 +776,7 @@ impl TraceList {
     pub fn read_buffer(&mut self, buffer: &[u8], options: &ReadOptions) -> Result<usize> {
         let flags = options.flags;
         // The buffer is the whole input
-        let mut pflags = flags | ParseFlags::END_OF_INPUT;
+        let mut pflags = (flags | ParseFlags::END_OF_INPUT) - ParseFlags::NO_RAW;
         // Defer unpacking when selecting, to skip unneeded decoding
         if options.selections.is_some() {
             pflags.remove(ParseFlags::UNPACK_DATA);
@@ -828,13 +828,15 @@ impl TraceList {
     /// On error, the records added before it remain in the list.
     pub fn read_file(&mut self, path: impl AsRef<Path>, options: &ReadOptions) -> Result<usize> {
         let path = path.as_ref();
+        // Duplicate detection needs the raw record
+        let flags = options.flags - ParseFlags::NO_RAW;
         let (mut reader, file_path) = match path.to_str() {
             // Record locations refer to the file without the byte range suffix
             Some(s) if options.path_range => (
-                MsReader::open_path_range(s, options.flags)?,
+                MsReader::open_path_range(s, flags)?,
                 PathBuf::from(crate::reader::split_path_range(s).0),
             ),
-            _ => (MsReader::open(path, options.flags)?, path.to_path_buf()),
+            _ => (MsReader::open(path, flags)?, path.to_path_buf()),
         };
         if let Some(s) = &options.selections {
             reader = reader.with_selections(s.clone());
@@ -901,6 +903,8 @@ impl TraceList {
 }
 
 /// Detects a record identical to the one before it, by CRC of the raw record.
+///
+/// Trace-list reads parse without [`ParseFlags::NO_RAW`], so the raw record is present.
 struct DuplicateFilter {
     enabled: bool,
     previous: Option<u32>,

@@ -5,6 +5,9 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Added
+- Add a NO_RAW parse flag to skip retaining the raw record bytes
+
 ## [0.1.3] - 2026-11-17
 
 ### Fixed

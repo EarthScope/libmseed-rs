@@ -27,7 +27,8 @@ const READ_CHUNK: usize = 64 * 1024;
 /// records that fail to parse or decode, call [`MsReader::next_record`] again after an
 /// error, or set [`ParseFlags::SKIP_NOT_DATA`].
 ///
-/// Flags honored: [`ParseFlags::UNPACK_DATA`], [`ParseFlags::SKIP_NOT_DATA`], [`ParseFlags::VALIDATE_CRC`].
+/// Flags honored: [`ParseFlags::UNPACK_DATA`], [`ParseFlags::SKIP_NOT_DATA`], [`ParseFlags::VALIDATE_CRC`],
+/// [`ParseFlags::NO_RAW`].
 pub struct MsReader<R> {
     input: R,
     flags: ParseFlags,
@@ -171,7 +172,7 @@ impl<R: Read> MsReader<R> {
         let mut pflags = self.flags;
         // Defer data unpacking when selecting, to avoid decoding skipped records
         if self.selections.is_some() {
-            pflags.remove(ParseFlags::UNPACK_DATA);
+            pflags.remove(ParseFlags::UNPACK_DATA | ParseFlags::NO_RAW);
         }
         let mut need_more = false;
 
@@ -264,6 +265,9 @@ impl<R: Read> MsReader<R> {
                             self.read_offset += reclen;
                             self.stream_pos += reclen as u64;
                             return Err(e);
+                        }
+                        if self.flags.contains(ParseFlags::NO_RAW) {
+                            rec.clear_raw();
                         }
                         self.last_offset = self.stream_pos;
                         self.read_offset += reclen;
