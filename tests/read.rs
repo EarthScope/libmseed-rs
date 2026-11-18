@@ -416,6 +416,15 @@ fn v3_invalid_samplerate() {
     assert!(Record::parse(&rec, ParseFlags::empty()).is_err());
 }
 
+/// A version 2 BTIME fraction above 9999 is rejected rather than wrapped into range.
+#[test]
+fn v2_btime_fraction_out_of_range() {
+    let mut rec = pack_one(true, 128);
+    assert!(Record::parse(&rec, ParseFlags::empty()).is_ok());
+    rec[28..30].copy_from_slice(&10000u16.to_be_bytes());
+    assert!(Record::parse(&rec, ParseFlags::empty()).is_err());
+}
+
 /// A Blockette 100 with an invalid (negative) sample rate is ignored.
 #[test]
 fn v2_b100_invalid_samplerate() {

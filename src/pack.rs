@@ -292,6 +292,27 @@ fn get_str<'a>(v: &'a Value, ptr: &str) -> Option<&'a str> {
     v.pointer(ptr).and_then(Value::as_str)
 }
 
+/// Convert `real * scale`, rounded to nearest, to an unsigned 32-bit blockette field value.
+fn real_to_u32(sid: &str, name: &str, real: f64, scale: f64) -> Result<u32> {
+    let scaled = real * scale + 0.5;
+    // NaN is in no range and is rejected
+    if (0.0..4294967296.0).contains(&scaled) {
+        Ok(scaled as u32)
+    } else {
+        Err(Error::Pack(format!("{sid}: Value of {name} is out of range: {real}")))
+    }
+}
+
+/// Convert to a single precision blockette field value; a finite value beyond the single
+/// precision range is rejected, NaN and infinities are converted.
+fn real_to_f32(sid: &str, name: &str, real: f64) -> Result<f32> {
+    if real.is_finite() && real.abs() > f32::MAX as f64 {
+        Err(Error::Pack(format!("{sid}: Value of {name} is out of range: {real}")))
+    } else {
+        Ok(real as f32)
+    }
+}
+
 fn prefix_ci(h: &str, lit: &str) -> bool {
     h.len() >= lit.len() && h.as_bytes()[..lit.len()].eq_ignore_ascii_case(lit.as_bytes())
 }
@@ -420,6 +441,8 @@ impl Record {
         let get = |ptr: &str| -> Option<&Value> { root.pointer(ptr).filter(|v| !v.is_null()) };
         let get_uint = |v: &Value, ptr: &str| v.pointer(ptr).and_then(Value::as_u64);
         let get_num = |v: &Value, ptr: &str| v.pointer(ptr).and_then(Value::as_f64);
+        let num_f32 =
+            |v: &Value, ptr: &str| get_num(v, ptr).map(|n| real_to_f32(sid, ptr, n)).transpose();
         let get_bool = |v: &Value, ptr: &str| v.pointer(ptr).and_then(Value::as_bool);
 
         // Generous upper bound for the header: fixed + all blockettes
@@ -604,8 +627,8 @@ impl Record {
                 next_off = written + 2;
                 b.v[39] += 1;
                 b.u16(written, 500);
-                if let Some(n) = get_num(item, "/VCOCorrection") {
-                    b.f32(written + 4, n as f32);
+                if let Some(n) = num_f32(item, "/VCOCorrection")? {
+                    b.f32(written + 4, n);
                 }
                 if let Some(ts) = get_str(item, "/Time") {
                     let usec = put_btime(&mut b, written + 8, ts).map_err(|_| {
@@ -642,14 +665,14 @@ impl Record {
                 next_off = written + 2;
                 b.v[39] += 1;
                 b.u16(written, btype);
-                if let Some(n) = get_num(item, "/SignalAmplitude") {
-                    b.f32(written + 4, n as f32);
+                if let Some(n) = num_f32(item, "/SignalAmplitude")? {
+                    b.f32(written + 4, n);
                 }
-                if let Some(n) = get_num(item, "/SignalPeriod") {
-                    b.f32(written + 8, n as f32);
+                if let Some(n) = num_f32(item, "/SignalPeriod")? {
+                    b.f32(written + 8, n);
                 }
-                if let Some(n) = get_num(item, "/BackgroundEstimate") {
-                    b.f32(written + 12, n as f32);
+                if let Some(n) = num_f32(item, "/BackgroundEstimate")? {
+                    b.f32(written + 12, n);
                 }
                 match get_str(item, "/Wave") {
                     Some(w) => {
@@ -674,8 +697,13 @@ impl Record {
                     }
                 } else {
                     if let Some(Value::Array(snr)) = item.pointer("/MEDSNR") {
-                        for (i, v) in snr.iter().filter(|v| v.is_number()).take(6).enumerate() {
-                            b.v[written + 28 + i] = v.as_f64().unwrap_or(0.0) as u8;
+                        for (i, v) in snr.iter().filter_map(Value::as_f64).take(6).enumerate() {
+                            let snr = real_to_u32(sid, "/MEDSNR", v, 1.0)?;
+                            b.v[written + 28 + i] = u8::try_from(snr).map_err(|_| {
+                                Error::Pack(format!(
+                                    "{sid}: Value of /MEDSNR is out of range: {snr}"
+                                ))
+                            })?;
                         }
                     }
                     if let Some(v) = get_uint(item, "/MEDLookback").filter(|&v| v <= 255) {
@@ -730,8 +758,14 @@ impl Record {
                     let w = written;
                     let auto = get_str(item, "/Trigger").is_some_and(|s| prefix_ci(s, "AUTOMATIC"));
                     let cont = get_bool(item, "/Continued") == Some(true);
-                    let dur = |p: &str| get_num(item, p).map(|n| (n * 10000.0 + 0.5) as u32);
-                    let refamp = get_num(item, "/ReferenceAmplitude").map(|n| (n + 0.5) as u32);
+                    // Durations in 0.0001 second units
+                    let dur = |p: &str| {
+                        get_num(item, p).map(|n| real_to_u32(sid, p, n, 10000.0)).transpose()
+                    };
+                    let refamp = || {
+                        let p = "/ReferenceAmplitude";
+                        get_num(item, p).map(|n| real_to_u32(sid, p, n, 1.0)).transpose()
+                    };
                     match btype {
                         300 => {
                             if let Some(s) = get_uint(item, "/Steps").filter(|&s| s <= 255) {
@@ -749,19 +783,19 @@ impl Record {
                             if cont {
                                 b.v[w + 15] |= 0x08;
                             }
-                            if let Some(d) = dur("/Duration") {
+                            if let Some(d) = dur("/Duration")? {
                                 b.u32(w + 16, d);
                             }
-                            if let Some(d) = dur("/StepBetween") {
+                            if let Some(d) = dur("/StepBetween")? {
                                 b.u32(w + 20, d);
                             }
-                            if let Some(n) = get_num(item, "/Amplitude") {
-                                b.f32(w + 24, n as f32);
+                            if let Some(n) = num_f32(item, "/Amplitude")? {
+                                b.f32(w + 24, n);
                             }
                             if let Some(s) = get_str(item, "/InputChannel") {
                                 b.text(w + 28, 3, s);
                             }
-                            if let Some(r) = refamp {
+                            if let Some(r) = refamp()? {
                                 b.u32(w + 32, r);
                             }
                             if let Some(s) = get_str(item, "/Coupling") {
@@ -789,19 +823,19 @@ impl Record {
                                     b.v[w + 15] |= 0x40;
                                 }
                             }
-                            if let Some(d) = dur("/Duration") {
+                            if let Some(d) = dur("/Duration")? {
                                 b.u32(w + 16, d);
                             }
-                            if let Some(n) = get_num(item, "/SinePeriod") {
-                                b.f32(w + 20, n as f32);
+                            if let Some(n) = num_f32(item, "/SinePeriod")? {
+                                b.f32(w + 20, n);
                             }
-                            if let Some(n) = get_num(item, "/Amplitude") {
-                                b.f32(w + 24, n as f32);
+                            if let Some(n) = num_f32(item, "/Amplitude")? {
+                                b.f32(w + 24, n);
                             }
                             if let Some(s) = get_str(item, "/InputChannel") {
                                 b.text(w + 28, 3, s);
                             }
-                            if let Some(r) = refamp {
+                            if let Some(r) = refamp()? {
                                 b.u32(w + 32, r);
                             }
                             if let Some(s) = get_str(item, "/Coupling") {
@@ -823,16 +857,16 @@ impl Record {
                             {
                                 b.v[w + 15] |= 0x10;
                             }
-                            if let Some(d) = dur("/Duration") {
+                            if let Some(d) = dur("/Duration")? {
                                 b.u32(w + 16, d);
                             }
-                            if let Some(n) = get_num(item, "/Amplitude") {
-                                b.f32(w + 20, n as f32);
+                            if let Some(n) = num_f32(item, "/Amplitude")? {
+                                b.f32(w + 20, n);
                             }
                             if let Some(s) = get_str(item, "/InputChannel") {
                                 b.text(w + 24, 3, s);
                             }
-                            if let Some(r) = refamp {
+                            if let Some(r) = refamp()? {
                                 b.u32(w + 28, r);
                             }
                             if let Some(s) = get_str(item, "/Coupling") {
@@ -853,11 +887,11 @@ impl Record {
                             if cont {
                                 b.v[w + 15] |= 0x08;
                             }
-                            if let Some(d) = dur("/Duration") {
+                            if let Some(d) = dur("/Duration")? {
                                 b.u32(w + 16, d);
                             }
-                            if let Some(n) = get_num(item, "/Amplitude") {
-                                b.f32(w + 20, n as f32);
+                            if let Some(n) = num_f32(item, "/Amplitude")? {
+                                b.f32(w + 20, n);
                             }
                             if let Some(s) = get_str(item, "/InputChannel") {
                                 b.text(w + 24, 3, s);

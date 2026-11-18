@@ -452,6 +452,35 @@ fn pack_v2_calibration_abort() {
     .is_err());
 }
 
+/// Extra header numbers that cannot be represented in their miniSEED v2 blockette fields
+/// are rejected rather than converted.
+/// Ported from the C test `msr3_pack_v2_blockette_value_range`.
+#[test]
+fn pack_v2_blockette_value_range() {
+    // Values within range are accepted
+    for extra in [
+        r#"{"FDSN":{"Calibration":{"Sequence":[{"Type":"STEP","Duration":1.5,"StepBetween":2,"Amplitude":-3.25,"ReferenceAmplitude":7}]}}}"#,
+        r#"{"FDSN":{"Event":{"Detection":[{"Type":"MURDOCK","SignalAmplitude":-80.5,"MEDSNR":[1,2,3,4,5,255]}]}}}"#,
+    ] {
+        assert!(!pack_v2_with_extra(extra).unwrap().is_empty(), "rejected: {extra}");
+    }
+
+    for extra in [
+        // Negative and too large unsigned values
+        r#"{"FDSN":{"Calibration":{"Sequence":[{"Type":"STEP","Duration":-1}]}}}"#,
+        r#"{"FDSN":{"Calibration":{"Sequence":[{"Type":"SINE","Duration":1e6}]}}}"#,
+        r#"{"FDSN":{"Calibration":{"Sequence":[{"Type":"PSEUDORANDOM","ReferenceAmplitude":5e9}]}}}"#,
+        r#"{"FDSN":{"Event":{"Detection":[{"Type":"MURDOCK","MEDSNR":[1,2,300]}]}}}"#,
+        r#"{"FDSN":{"Event":{"Detection":[{"Type":"MURDOCK","MEDSNR":[-1]}]}}}"#,
+        // Real values beyond single precision
+        r#"{"FDSN":{"Event":{"Detection":[{"SignalAmplitude":1e300}]}}}"#,
+        r#"{"FDSN":{"Time":{"Exception":[{"VCOCorrection":-1e40}]}}}"#,
+    ] {
+        let err = pack_v2_with_extra(extra).expect_err(extra);
+        assert!(err.to_string().contains("out of range"), "{extra}: {err}");
+    }
+}
+
 /// Typed extra header values survive a v2 pack and parse round trip as blockettes.
 #[test]
 fn v2_blockette_roundtrip() {

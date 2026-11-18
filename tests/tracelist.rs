@@ -454,3 +454,75 @@ fn add_record_counts_samples() {
     rec.sample_count = 5;
     assert!(matches!(traces.add_record(&rec), Err(libmseed::Error::InvalidArgument(_))));
 }
+
+/// A record list of miniSEED 2 records with a big endian header and a little endian INT32
+/// payload, as declared in Blockette 1000, decodes to the samples unpacked while parsing.
+/// Ported from the C test `mstl3_unpack_recordlist_mixedbyteorder`.
+#[test]
+fn unpack_recordlist_mixedbyteorder() {
+    let mut buffer = std::fs::read(data("reference-testdata-int32.mseed2")).unwrap();
+    assert_eq!(buffer.len(), 2560);
+
+    // Reference samples from the unmodified, big endian records
+    let mut unpacked = TraceList::new();
+    assert_eq!(
+        unpacked.read_buffer(&buffer, &ReadOptions::new(ParseFlags::UNPACK_DATA)).unwrap(),
+        5
+    );
+    let reference = unpacked.ids()[0].segments[0].samples.clone().unwrap();
+    assert!(!reference.as_i32().unwrap().is_empty());
+
+    // Convert each 512-byte record payload to little endian, declared in Blockette 1000
+    for rec in buffer.as_chunks_mut::<512>().0 {
+        let dataoffset = u16::from_be_bytes([rec[44], rec[45]]) as usize;
+        assert_eq!(dataoffset, 56);
+        assert_eq!(&rec[48..50], &1000u16.to_be_bytes(), "Blockette 1000 not at offset 48");
+        rec[53] = 0;
+        for word in rec[dataoffset..].as_chunks_mut::<4>().0 {
+            word.reverse();
+        }
+    }
+
+    let mut mstl = record_list_trace_list();
+    assert_eq!(mstl.read_buffer(&buffer, &ReadOptions::default()).unwrap(), 5);
+    let seg = mstl.segments_mut().next().unwrap();
+    assert!(seg.record_list.is_some());
+    let n = seg.unpack_record_list(Some(&buffer)).unwrap();
+    assert_eq!(n, reference.as_i32().unwrap().len());
+    assert_eq!(seg.samples.as_ref().unwrap().as_i32(), reference.as_i32());
+}
+
+/// A record list read from a path with a byte range suffix refers to the file by its path
+/// without the suffix, so unpacking can open it.
+/// Ported from the C test `ms3_readtracelist_recptr_pnamerange`.
+#[test]
+fn readtracelist_recptr_pathrange() {
+    let mut path = data(MIXED_V2).into_os_string();
+    path.push("@0-16255");
+
+    let mut mstl = record_list_trace_list();
+    let options = ReadOptions { path_range: true, ..Default::default() };
+    mstl.read_file(&path, &options).unwrap();
+
+    let seg = mstl.segments_mut().next().unwrap();
+    assert!(seg.record_list.is_some());
+    assert_eq!(seg.sample_count, 3952);
+    assert_eq!(seg.unpack_record_list(None).unwrap(), 3952);
+    assert_eq!(seg.num_samples(), 3952);
+}
+
+/// A source ID that cannot be split into codes is listed with empty codes, not the codes
+/// of another trace ID.
+/// Ported from the C test `mstl3_printsynclist_unparsable_sid`.
+#[test]
+fn sync_list_unparsable_sid() {
+    let mut mstl = TraceList::new();
+    for sid in ["FDSN:XX_AAA_00_B_H_Z", "XX_BBB"] {
+        let mut msr = Record::new(sid, t("2023-11-14T22:13:20Z"));
+        msr.sample_rate = 1.0;
+        mstl.add_record(&msr).unwrap();
+    }
+    let sync = mstl.format_sync_list(None, libmseed::time::Subseconds::None, Some("2024,001"));
+    assert_eq!(sync.matches("XX|AAA|00|BHZ|").count(), 1, "{sync}");
+    assert!(sync.contains("\n||||"), "{sync}");
+}

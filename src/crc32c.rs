@@ -246,5 +246,9 @@ mod tests {
         let part = crc32c(b"6789", crc32c(b"12345", 0));
         assert_eq!(whole, part);
         assert_eq!(whole, 0xe3069283);
+        // No input returns the starting value, so a zero-length continuation is a no-op
+        assert_eq!(crc32c(&[], 0x1234_5678), 0x1234_5678);
+        let part = crc32c(b"6789", crc32c(&[], crc32c(b"12345", 0)));
+        assert_eq!(part, 0xe3069283);
     }
 }

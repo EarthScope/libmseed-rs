@@ -8,6 +8,9 @@ versioning: [SemVer](https://semver.org/).
 ### Added
 - Add a NO_RAW parse flag to skip retaining the raw record bytes, which are copied only when needed to unpack samples
 
+### Fixed
+- Reject extra header numbers that cannot be represented in miniSEED 2 blockette fields instead of converting them
+
 ## [0.1.3] - 2026-11-17
 
 ### Fixed
