@@ -526,3 +526,21 @@ fn sync_list_unparsable_sid() {
     assert_eq!(sync.matches("XX|AAA|00|BHZ|").count(), 1, "{sync}");
     assert!(sync.contains("\n||||"), "{sync}");
 }
+
+/// A record list entry with a data offset of 0 and a non-zero sample count is rejected when
+/// decoding, as when unpacking the record, rather than decoding header bytes as samples.
+#[test]
+fn unpack_recordlist_zero_data_offset() {
+    let mut buffer = std::fs::read(data("reference-testdata-int32.mseed2")).unwrap();
+    assert_eq!(buffer.len(), 2560);
+    let rec = &mut buffer[1024..1536];
+    assert_ne!(u32::from_be_bytes([0, 0, rec[30], rec[31]]), 0, "sample count is zero");
+    rec[44..46].fill(0);
+    assert!(Record::parse(rec, ParseFlags::UNPACK_DATA).is_err());
+
+    let mut mstl = record_list_trace_list();
+    assert_eq!(mstl.read_buffer(&buffer, &ReadOptions::default()).unwrap(), 5);
+    let seg = mstl.segments_mut().next().unwrap();
+    let err = seg.unpack_record_list(Some(&buffer)).unwrap_err();
+    assert!(matches!(err, libmseed::Error::InvalidRecord(_)), "{err}");
+}

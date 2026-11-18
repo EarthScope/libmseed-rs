@@ -247,9 +247,9 @@ impl TraceSegment {
             let data_offset = rp.data_offset.ok_or_else(|| {
                 Error::InvalidArgument(format!("{sid}: Data offset of record is not known"))
             })?;
-            if data_offset >= input.len() {
+            if data_offset < crate::record::MINRECLEN || data_offset >= input.len() {
                 return Err(Error::InvalidRecord(format!(
-                    "{sid}: Data offset is beyond the record"
+                    "{sid}: Data offset value is not valid: {data_offset}"
                 )));
             }
             let decoded = decode(

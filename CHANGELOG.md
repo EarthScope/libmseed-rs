@@ -10,6 +10,7 @@ versioning: [SemVer](https://semver.org/).
 
 ### Fixed
 - Reject extra header numbers that cannot be represented in miniSEED 2 blockette fields instead of converting them
+- Reject a record list entry with an invalid data offset instead of decoding header bytes as samples
 
 ## [0.1.3] - 2026-11-17
 
