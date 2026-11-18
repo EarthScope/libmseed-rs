@@ -5,6 +5,8 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+## [0.1.3] - 2026-11-17
+
 ### Fixed
 - Convert the encoded data byte order when repacking records between formats
 - Treat a zero miniSEED 2 data offset as no data payload when repacking
@@ -60,5 +62,6 @@ versioning: [SemVer](https://semver.org/).
 - The embedded leap second list covers announcements through 2023; install a current list
   with `time::read_leap_second_file` for later data.
 
-[Unreleased]: https://github.com/EarthScope/libmseed-rs/compare/v0.1.2...HEAD
+[Unreleased]: https://github.com/EarthScope/libmseed-rs/compare/v0.1.3...HEAD
+[0.1.3]: https://github.com/EarthScope/libmseed-rs/compare/v0.1.2...v0.1.3
 [0.1.2]: https://github.com/EarthScope/libmseed-rs/releases/tag/v0.1.2
