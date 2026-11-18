@@ -304,6 +304,25 @@ impl TraceId {
         self.segments.len()
     }
 
+    /// Move the segment at `idx` into place, ordered by start time then by descending end
+    /// time, and return its new index.
+    fn sort_segment(&mut self, mut idx: usize) -> usize {
+        let out_of_order = |a: &TraceSegment, b: &TraceSegment| {
+            a.start_time > b.start_time || (a.start_time == b.start_time && a.end_time < b.end_time)
+        };
+        while idx + 1 < self.segments.len()
+            && out_of_order(&self.segments[idx], &self.segments[idx + 1])
+        {
+            self.segments.swap(idx, idx + 1);
+            idx += 1;
+        }
+        while idx > 0 && out_of_order(&self.segments[idx - 1], &self.segments[idx]) {
+            self.segments.swap(idx, idx - 1);
+            idx -= 1;
+        }
+        idx
+    }
+
     fn update_extent(&mut self) {
         let Some(first) = self.segments.first() else { return };
         self.earliest = first.start_time;
@@ -720,7 +739,7 @@ impl TraceList {
             Ok(seg_idx)
         })();
 
-        let mut seg_idx = match result {
+        let seg_idx = match result {
             Ok(i) => i,
             Err(e) => {
                 self.ids[idx] = id;
@@ -735,20 +754,8 @@ impl TraceList {
         id.earliest = id.earliest.min(msr.start_time);
         id.latest = id.latest.max(endtime);
 
-        // Sort the modified segment into place; the logic above limits this to few shifts
-        let out_of_order = |a: &TraceSegment, b: &TraceSegment| {
-            a.start_time > b.start_time || (a.start_time == b.start_time && a.end_time < b.end_time)
-        };
-        while seg_idx + 1 < id.segments.len()
-            && out_of_order(&id.segments[seg_idx], &id.segments[seg_idx + 1])
-        {
-            id.segments.swap(seg_idx, seg_idx + 1);
-            seg_idx += 1;
-        }
-        while seg_idx > 0 && out_of_order(&id.segments[seg_idx - 1], &id.segments[seg_idx]) {
-            id.segments.swap(seg_idx, seg_idx - 1);
-            seg_idx -= 1;
-        }
+        // The logic above limits this to few shifts
+        let seg_idx = id.sort_segment(seg_idx);
 
         if update_time {
             id.segments[seg_idx].update_time = Some(NsTime::now());
@@ -1070,7 +1077,12 @@ impl TraceList {
                     continue;
                 }
                 let pos = SegmentPos { id: i, segment: j };
-                total += self.pack_segment_impl(pos, options, flush, &mut handler)?;
+                let (packed, moved) = self.pack_segment_impl(pos, options, flush, &mut handler)?;
+                total += packed;
+                // A trimmed segment sorted later leaves an unvisited segment at `j`
+                if moved {
+                    continue;
+                }
 
                 // Remove the segment if no samples remain and the list is not kept
                 if !options.keep_data && self.ids[i].segments[j].num_samples() == 0 {
@@ -1103,7 +1115,7 @@ impl TraceList {
         mut handler: impl FnMut(&[u8]) -> Result<()>,
     ) -> Result<Packed> {
         check_extra_length(options)?;
-        self.pack_segment_impl(pos, options, options.flush, &mut handler)
+        self.pack_segment_impl(pos, options, options.flush, &mut handler).map(|(p, _)| p)
     }
 
     fn pack_segment_impl(
@@ -1112,14 +1124,14 @@ impl TraceList {
         options: &PackOptions,
         flush: bool,
         handler: &mut impl FnMut(&[u8]) -> Result<()>,
-    ) -> Result<Packed> {
+    ) -> Result<(Packed, bool)> {
         let id = self
             .ids
             .get_mut(pos.id)
             .filter(|id| pos.segment < id.segments.len())
             .ok_or_else(|| Error::InvalidArgument("Segment position is out of range".into()))?;
         if id.segments[pos.segment].num_samples() == 0 {
-            return Ok(Packed::default());
+            return Ok((Packed::default(), false));
         }
 
         let mut template = segment_template(id, &id.segments[pos.segment], options);
@@ -1130,11 +1142,16 @@ impl TraceList {
             deliver_records(&template, &template_options(options, flush), handler, &mut packed);
         id.segments[pos.segment].samples = template.samples.take();
 
+        // Whether a partially trimmed segment moved later in the list
+        let mut moved = false;
         if !options.keep_data && packed.samples > 0 {
             trim_segment(&mut id.segments[pos.segment], packed.samples);
+            if id.segments[pos.segment].num_samples() > 0 {
+                moved = id.sort_segment(pos.segment) != pos.segment;
+            }
             id.update_extent();
         }
-        result.map(|()| packed)
+        result.map(|()| (packed, moved))
     }
 
     /// Pack all data of the list and write it to a file, which is created or replaced.
@@ -1291,6 +1308,7 @@ impl TraceListPacker {
                         let id = &mut list.ids[pos.id];
                         trim_segment(&mut id.segments[pos.segment], packed);
                         if id.segments[pos.segment].num_samples() > 0 {
+                            id.sort_segment(pos.segment);
                             id.update_extent();
                         } else {
                             list.remove_segment(pos);

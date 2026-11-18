@@ -346,9 +346,11 @@ impl Record {
                     let mut e = EventDetection {
                         kind: if murdock { "MURDOCK" } else { "GENERIC" }.into(),
                         detector: clean_tail(&b[if murdock { 36 } else { 28 }..], 24),
-                        signal_amplitude: nonzero(f32::from_bits(order.u32(&b[4..8])) as f64),
-                        signal_period: nonzero(f32::from_bits(order.u32(&b[8..12])) as f64),
-                        background_estimate: nonzero(f32::from_bits(order.u32(&b[12..16])) as f64),
+                        signal_amplitude: finite_nonzero(f32::from_bits(order.u32(&b[4..8])) as f64),
+                        signal_period: finite_nonzero(f32::from_bits(order.u32(&b[8..12])) as f64),
+                        background_estimate: finite_nonzero(
+                            f32::from_bits(order.u32(&b[12..16])) as f64
+                        ),
                         onset_time: btime_to_nstime(&b[18..28], order),
                         ..Default::default()
                     };
@@ -380,7 +382,7 @@ impl Record {
                     let usec = b[18] as i8 as i64 * (NSTMODULUS / 1_000_000);
                     let t = TimingException {
                         vco_correction: Some(f32::from_bits(order.u32(&b[4..8])))
-                            .filter(|v| *v >= 0.0),
+                            .filter(|v| v.is_finite() && *v >= 0.0),
                         time: btime_to_nstime(&b[8..18], order)
                             .and_then(|t| t.checked_add_nanos(usec)),
                         reception_quality: Some(b[19] as i32),
@@ -622,9 +624,10 @@ pub(crate) fn btime_to_nstime(b: &[u8], order: ByteOrder) -> Option<NsTime> {
     .ok()
 }
 
-/// `Some(v)` unless `v` is zero, which blockettes use for "not included".
-fn nonzero(v: f64) -> Option<f64> {
-    (v != 0.0).then_some(v)
+/// `Some(v)` unless `v` is zero, which blockettes use for "not included", or not finite,
+/// which JSON cannot represent.
+fn finite_nonzero(v: f64) -> Option<f64> {
+    (v != 0.0 && v.is_finite()).then_some(v)
 }
 
 /// Map a calibration blockette (300, 310, 320, 390, 395) to calibration parameters.
@@ -645,11 +648,11 @@ fn v2_calibration(blkt_type: u16, b: &[u8], order: ByteOrder) -> Calibration {
             c.alternate_sign = (flags & 0x02 != 0).then_some(true);
             c.trigger = trigger(flags);
             c.continued = (flags & 0x08 != 0).then_some(true);
-            c.duration = nonzero(u32at(16) as f64 / 10000.0);
-            c.step_between = nonzero(u32at(20) as f64 / 10000.0);
-            c.amplitude = nonzero(f32at(24));
+            c.duration = finite_nonzero(u32at(16) as f64 / 10000.0);
+            c.step_between = finite_nonzero(u32at(20) as f64 / 10000.0);
+            c.amplitude = finite_nonzero(f32at(24));
             c.input_channel = clean_tail(&b[28..], 3);
-            c.ref_amplitude = nonzero(u32at(32) as f64);
+            c.ref_amplitude = finite_nonzero(u32at(32) as f64);
             c.coupling = clean_tail(&b[36..], 12);
             c.rolloff = clean_tail(&b[48..], 12);
         }
@@ -668,11 +671,11 @@ fn v2_calibration(blkt_type: u16, b: &[u8], order: ByteOrder) -> Calibration {
                 ""
             }
             .into();
-            c.duration = nonzero(u32at(16) as f64 / 10000.0);
-            c.sine_period = nonzero(f32at(20));
-            c.amplitude = nonzero(f32at(24));
+            c.duration = finite_nonzero(u32at(16) as f64 / 10000.0);
+            c.sine_period = finite_nonzero(f32at(20));
+            c.amplitude = finite_nonzero(f32at(24));
             c.input_channel = clean_tail(&b[28..], 3);
-            c.ref_amplitude = nonzero(u32at(32) as f64);
+            c.ref_amplitude = finite_nonzero(u32at(32) as f64);
             c.coupling = clean_tail(&b[36..], 12);
             c.rolloff = clean_tail(&b[48..], 12);
         }
@@ -684,10 +687,10 @@ fn v2_calibration(blkt_type: u16, b: &[u8], order: ByteOrder) -> Calibration {
             if flags & 0x10 != 0 {
                 c.amplitude_range = "RANDOM".into();
             }
-            c.duration = nonzero(u32at(16) as f64 / 10000.0);
-            c.amplitude = nonzero(f32at(20));
+            c.duration = finite_nonzero(u32at(16) as f64 / 10000.0);
+            c.amplitude = finite_nonzero(f32at(20));
             c.input_channel = clean_tail(&b[24..], 3);
-            c.ref_amplitude = nonzero(u32at(28) as f64);
+            c.ref_amplitude = finite_nonzero(u32at(28) as f64);
             c.coupling = clean_tail(&b[32..], 12);
             c.rolloff = clean_tail(&b[44..], 12);
             c.noise = clean_tail(&b[56..], 8);
@@ -697,8 +700,8 @@ fn v2_calibration(blkt_type: u16, b: &[u8], order: ByteOrder) -> Calibration {
             c.begin_time = begin;
             c.trigger = trigger(flags);
             c.continued = (flags & 0x08 != 0).then_some(true);
-            c.duration = nonzero(u32at(16) as f64 / 10000.0);
-            c.amplitude = nonzero(f32at(20));
+            c.duration = finite_nonzero(u32at(16) as f64 / 10000.0);
+            c.amplitude = finite_nonzero(f32at(20));
             c.input_channel = clean_tail(&b[24..], 3);
         }
         _ => {

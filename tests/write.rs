@@ -569,3 +569,75 @@ fn repack_v2_payload_byteorder() {
         repack_roundtrip(path, FormatVersion::V2);
     }
 }
+
+/// Offset of the first blockette of `blkt_type` in a big endian v2 record.
+fn v2_blockette_offset(rec: &[u8], blkt_type: u16) -> usize {
+    let be16 = |o: usize| u16::from_be_bytes([rec[o], rec[o + 1]]) as usize;
+    let mut off = be16(46);
+    while off != 0 {
+        if be16(off) == blkt_type as usize {
+            return off;
+        }
+        off = be16(off + 2);
+    }
+    panic!("no blockette {blkt_type}");
+}
+
+/// Non-finite blockette values are omitted from the extra headers and the record parses.
+#[test]
+fn v2_blockette_non_finite_values() {
+    let extra = concat!(
+        r#"{"FDSN":{"Event":{"Detection":[{"Type":"MURDOCK","SignalAmplitude":80.0,"#,
+        r#""SignalPeriod":0.4,"Detector":"Z_SPWWSS"}]},"#,
+        r#""Calibration":{"Sequence":[{"Type":"STEP","BeginTime":"2022-06-05T20:00:00Z","#,
+        r#""Duration":5.0,"Amplitude":1.5}]},"#,
+        r#""Time":{"Exception":[{"Time":"2022-06-05T20:00:00Z","VCOCorrection":51.5,"Count":3}]}}}"#
+    );
+    let mut rec = pack_v2_with_extra(extra).unwrap().remove(0);
+    let b201 = v2_blockette_offset(&rec, 201);
+    rec[b201 + 4..b201 + 8].copy_from_slice(&f32::NAN.to_be_bytes());
+    let b300 = v2_blockette_offset(&rec, 300);
+    rec[b300 + 24..b300 + 28].copy_from_slice(&f32::INFINITY.to_be_bytes());
+    let b500 = v2_blockette_offset(&rec, 500);
+    rec[b500 + 4..b500 + 8].copy_from_slice(&f32::INFINITY.to_be_bytes());
+
+    let parsed = Record::parse(&rec, ParseFlags::UNPACK_DATA).unwrap();
+    let eh = parsed.extra_headers().unwrap();
+    assert!(!eh.exists("/FDSN/Event/Detection/0/SignalAmplitude"));
+    assert_eq!(eh.get_f64("/FDSN/Event/Detection/0/SignalPeriod").unwrap(), Some(0.4));
+    assert!(!eh.exists("/FDSN/Calibration/Sequence/0/Amplitude"));
+    assert_eq!(eh.get_f64("/FDSN/Calibration/Sequence/0/Duration").unwrap(), Some(5.0));
+    assert!(!eh.exists("/FDSN/Time/Exception/0/VCOCorrection"));
+    assert_eq!(eh.get_i64("/FDSN/Time/Exception/0/Count").unwrap(), Some(3));
+}
+
+/// A v2 record with a zero data offset has no data payload, so repacking copies none.
+#[test]
+fn repack_v2_zero_data_offset() {
+    let mut msr = Record::new("FDSN:XX_TEST__B_H_Z", t("2024-01-02T03:04:05Z"));
+    msr.reclen = Some(512);
+    msr.pub_version = 1;
+    msr.format_version = Some(FormatVersion::V2);
+    msr.sample_rate = 1.0;
+    msr.encoding = Some(Encoding::STEIM2);
+    msr.sample_count = 4;
+    msr.samples = Some(Samples::Int32(vec![1, 2, 3, 4]));
+    msr.extra = r#"{"FDSN":{"Event":{"Begin":true}}}"#.into();
+    let mut rec = msr.pack(&flush()).unwrap().remove(0);
+    // Header only: no samples and a zero data offset
+    rec[30..32].fill(0);
+    rec[44..46].fill(0);
+
+    let parsed = Record::parse(&rec, ParseFlags::UNPACK_DATA).unwrap();
+    assert_eq!(parsed.encoding, Some(Encoding::STEIM2));
+    assert_eq!(parsed.data_bounds().unwrap(), (0, 0));
+
+    let v3 = parsed.repack(FormatVersion::V3).unwrap();
+    let v3rec = Record::parse(&v3, ParseFlags::empty()).unwrap();
+    assert_eq!(v3rec.data_length, 0);
+    assert_eq!(v3.len(), 40 + parsed.sid.len() + v3rec.extra.len());
+
+    let v2 = parsed.repack(FormatVersion::V2).unwrap();
+    let v2rec = Record::parse(&v2, ParseFlags::empty()).unwrap();
+    assert_eq!(v2rec.sample_count, 0);
+}

@@ -230,6 +230,10 @@ impl Record {
             ),
             Some(FormatVersion::V2) => {
                 let offset = self.header_order.u16(&raw[44..46]) as usize;
+                // A zero data offset means no data payload
+                if offset == 0 {
+                    return Ok((0, 0));
+                }
                 if offset >= reclen {
                     return Err(Error::InvalidRecord(format!(
                         "{}: Data offset ({offset}) is beyond record length ({reclen})",

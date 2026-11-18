@@ -530,3 +530,64 @@ fn pack_then_read_roundtrip() {
     let n = MsReader::open(&path, ParseFlags::empty()).unwrap().count();
     assert!(n >= 8);
 }
+
+/// One ID with a long segment overlapped by a short one and a later short one. Packing a
+/// record from the long segment trims its start past the overlapping segment.
+fn overlapping_segments_list() -> TraceList {
+    let start = t("2012-05-12T00:00:00.0Z");
+    let sid = "FDSN:XX_TEST__H_H_Z";
+    let isine = isinedata();
+    let mut mstl = TraceList::new();
+    mstl.add_record(&msr(sid, 1.0, start, isine[..200].to_vec())).unwrap();
+    mstl.add_record(&msr(sid, 1.0, start.sample_time(50, 1.0).unwrap(), isine[..10].to_vec()))
+        .unwrap();
+    mstl.add_record(&msr(sid, 1.0, start.sample_time(1000, 1.0).unwrap(), isine[..10].to_vec()))
+        .unwrap();
+    mstl
+}
+
+fn assert_segments_sorted(mstl: &TraceList) {
+    let segs = &mstl.ids()[0].segments;
+    assert!(
+        segs.windows(2).all(|w| w[0].start_time <= w[1].start_time),
+        "segments are not sorted: {:?}",
+        segs.iter().map(|s| s.start_time).collect::<Vec<_>>()
+    );
+}
+
+/// A record continuing the overlapping segment merges into it.
+fn assert_merges_after_trim(mstl: &mut TraceList) {
+    let start = t("2012-05-12T00:00:00.0Z");
+    let sid = "FDSN:XX_TEST__H_H_Z";
+    mstl.add_record(&msr(sid, 1.0, start.sample_time(60, 1.0).unwrap(), isinedata()[..5].to_vec()))
+        .unwrap();
+    assert_eq!(mstl.ids()[0].num_segments(), 3);
+}
+
+/// Trimming packed samples keeps segments sorted, so later records still merge.
+#[test]
+fn trace_list_pack_trim_keeps_segments_sorted() {
+    let options = opts(512, Encoding::INT32);
+
+    let mut mstl = overlapping_segments_list();
+    let packed = mstl.pack_with(&options, |_| Ok(())).unwrap();
+    assert_eq!(packed.records, 1);
+    assert_eq!(mstl.ids()[0].num_segments(), 3);
+    assert_segments_sorted(&mstl);
+    assert_merges_after_trim(&mut mstl);
+
+    let mut mstl = overlapping_segments_list();
+    mstl.pack_segment(SegmentPos { id: 0, segment: 0 }, &options, |_| Ok(())).unwrap();
+    assert_segments_sorted(&mstl);
+    assert_merges_after_trim(&mut mstl);
+
+    let mut mstl = overlapping_segments_list();
+    let mut packer = TraceListPacker::new(options).unwrap();
+    let mut records = 0;
+    while packer.next_record(&mut mstl).unwrap().is_some() {
+        records += 1;
+    }
+    assert_eq!(records, 1);
+    assert_segments_sorted(&mstl);
+    assert_merges_after_trim(&mut mstl);
+}

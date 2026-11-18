@@ -7,6 +7,9 @@ versioning: [SemVer](https://semver.org/).
 
 ### Fixed
 - Convert the encoded data byte order when repacking records between formats
+- Treat a zero miniSEED 2 data offset as no data payload when repacking
+- Omit non-finite blockette values from extra headers instead of rejecting the miniSEED 2 record
+- Keep trace segments sorted by start time after packed samples are trimmed
 
 ## [0.1.2] - 2026-11-17
 
