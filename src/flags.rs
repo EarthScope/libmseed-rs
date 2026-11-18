@@ -14,14 +14,14 @@ bitflags::bitflags! {
         const SKIP_NOT_DATA = 0x0002;
         /// Validate the CRC of miniSEED 3 records.
         const VALIDATE_CRC = 0x0004;
-        /// Do not retain the raw record bytes: [`crate::Record::raw`] is `None`. With
-        /// [`ParseFlags::UNPACK_DATA`] the samples are decoded first. The record cannot
-        /// be unpacked or repacked afterwards. Ignored when reading into a trace list.
-        const NO_RAW = 0x0008;
         /// The buffer ends at the end of the input. A miniSEED 2 record without a
         /// blockette 1000 then takes the length of the rest of the buffer, if that is a
         /// power of two. [`crate::MsReader`] sets this itself.
         const END_OF_INPUT = 0x0010;
+        /// Do not retain the raw record bytes: [`crate::Record::raw`] is `None`. With
+        /// [`ParseFlags::UNPACK_DATA`] the samples are decoded first. The record cannot
+        /// be unpacked or repacked afterwards. Ignored when reading into a trace list.
+        const NO_RAW = 0x10000;
     }
 }
 

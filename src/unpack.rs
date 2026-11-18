@@ -139,7 +139,7 @@ impl Record {
             ByteOrder::Little
         };
 
-        let mut msr = Record {
+        let msr = Record {
             sid,
             format_version: Some(FormatVersion::V3),
             flags: RecordFlags::from_bits_retain(rec[3]),
@@ -153,18 +153,12 @@ impl Record {
             data_length: datalength,
             reclen: Some(reclen),
             samples: None,
-            raw: Some(rec.to_vec()),
+            raw: None,
             header_order: le,
             payload_order,
         };
 
-        if flags.contains(ParseFlags::UNPACK_DATA) && msr.sample_count > 0 {
-            msr.unpack_data()?;
-        }
-        if flags.contains(ParseFlags::NO_RAW) {
-            msr.raw = None;
-        }
-        Ok(msr)
+        msr.finish_parse(rec, flags)
     }
 
     /// Unpack a complete miniSEED 2 record.
@@ -504,15 +498,24 @@ impl Record {
             }
             None => order,
         };
-        msr.raw = Some(rec.to_vec());
+        msr.finish_parse(rec, flags)
+    }
 
-        if flags.contains(ParseFlags::UNPACK_DATA) && msr.sample_count > 0 {
-            msr.unpack_data()?;
+    /// Retain the raw record and unpack samples as the flags request. The raw record is
+    /// copied only if retained or needed for unpacking.
+    fn finish_parse(mut self, rec: &[u8], flags: ParseFlags) -> Result<Record> {
+        let unpack = flags.contains(ParseFlags::UNPACK_DATA) && self.sample_count > 0;
+        let no_raw = flags.contains(ParseFlags::NO_RAW);
+        if unpack || !no_raw {
+            self.raw = Some(rec.to_vec());
         }
-        if flags.contains(ParseFlags::NO_RAW) {
-            msr.raw = None;
+        if unpack {
+            self.unpack_data()?;
         }
-        Ok(msr)
+        if no_raw {
+            self.raw = None;
+        }
+        Ok(self)
     }
 }
 
