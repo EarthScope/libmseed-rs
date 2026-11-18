@@ -6,8 +6,7 @@ versioning: [SemVer](https://semver.org/).
 ## [Unreleased]
 
 ### Added
-- Add a NO_RAW parse flag to skip retaining the raw record bytes
-  - Avoid copying the raw record under NO_RAW unless needed to unpack samples and move the flag off the C MSF_PNAMERANGE bit
+- Add a NO_RAW parse flag to skip retaining the raw record bytes, which are copied only when needed to unpack samples
 
 ## [0.1.3] - 2026-11-17
 

@@ -129,6 +129,7 @@
 //!   library-specific logging configuration or message registry.
 //! * Flags are split by purpose: [`ParseFlags`] for parsing, and option structs
 //!   ([`PackOptions`], [`ReadOptions`], [`TraceListOptions`]) for packing and trace lists.
+//!   The [`flags`] module maps each C `MSF_*` flag to its equivalent.
 //! * Unset values are `Option`s rather than sentinel values such as `NSTUNSET` or -1.
 //! * Times that cannot be represented are errors rather than `NSTERROR`.
 //! * [`MsReader`] can continue past a record that fails to parse or decode: call
