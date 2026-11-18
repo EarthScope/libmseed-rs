@@ -922,7 +922,16 @@ impl Record {
         let mut rec = self.pack_header3(&self.header_params())?;
         let (origoffset, origsize) = self.data_bounds()?;
         let raw = self.raw.as_deref().expect("checked");
+        let dataoffset = rec.len();
         rec.extend_from_slice(&raw[origoffset..origoffset + origsize]);
+
+        // Steim payloads are big endian, all others little endian
+        let order = if matches!(self.encoding, Some(Encoding::STEIM1) | Some(Encoding::STEIM2)) {
+            ByteOrder::Big
+        } else {
+            ByteOrder::Little
+        };
+        convert_payload_order(&mut rec[dataoffset..], self.encoding, self.payload_order, order);
 
         rec[24..28].copy_from_slice(&(self.sample_count as u32).to_le_bytes());
         rec[36..40].copy_from_slice(&(origsize as u32).to_le_bytes());
@@ -971,9 +980,80 @@ impl Record {
         rec[..headerlen].copy_from_slice(&header);
         let raw = self.raw.as_deref().expect("checked");
         rec[dataoffset..totalsize].copy_from_slice(&raw[origoffset..origoffset + origsize]);
+        // Payload is big endian as declared in Blockette 1000
+        convert_payload_order(
+            &mut rec[dataoffset..totalsize],
+            self.encoding,
+            self.payload_order,
+            ByteOrder::Big,
+        );
         rec[30..32].copy_from_slice(&(self.sample_count as u16).to_be_bytes());
         rec[44..46].copy_from_slice(&(dataoffset as u16).to_be_bytes());
         Ok(rec)
+    }
+}
+
+/// Convert encoded data in place between byte orders. Steim targets are always big endian.
+///
+/// Only encodings defined by miniSEED 3 are converted; text, retired and unrecognized
+/// encodings are left unchanged.
+fn convert_payload_order(
+    data: &mut [u8],
+    encoding: Option<Encoding>,
+    from: ByteOrder,
+    to: ByteOrder,
+) {
+    if from == to {
+        return;
+    }
+    let wordsize = match encoding {
+        Some(Encoding::INT16) => 2,
+        Some(Encoding::INT32) | Some(Encoding::FLOAT32) => 4,
+        Some(Encoding::FLOAT64) => 8,
+        Some(enc @ (Encoding::STEIM1 | Encoding::STEIM2)) => {
+            if from == ByteOrder::Little {
+                steim_to_big_endian(data, enc);
+            }
+            return;
+        }
+        _ => return,
+    };
+    data.chunks_exact_mut(wordsize).for_each(|w| w.reverse());
+}
+
+/// Convert little endian Steim frames in place to big endian.
+///
+/// Little endian Steim swaps each difference within its 32-bit word, so the swapping of each
+/// word depends on its nibble:
+///   W0, X0 and Xn: 32-bit
+///   nibble 01: none (8-bit differences)
+///   nibble 10: Steim1 16-bit halves, Steim2 32-bit
+///   nibble 11: 32-bit
+fn steim_to_big_endian(data: &mut [u8], encoding: Encoding) {
+    for (frameidx, frame) in data.as_chunks_mut::<64>().0.iter_mut().enumerate() {
+        frame[0..4].reverse();
+        let nibbles = ByteOrder::Big.u32(&frame[0..4]);
+
+        // X0 and Xn in first frame
+        let startword = if frameidx == 0 {
+            frame[4..8].reverse();
+            frame[8..12].reverse();
+            3
+        } else {
+            1
+        };
+
+        for widx in startword..16 {
+            let w = &mut frame[widx * 4..widx * 4 + 4];
+            match (nibbles >> (30 - 2 * widx)) & 3 {
+                2 if encoding == Encoding::STEIM1 => {
+                    w[0..2].reverse();
+                    w[2..4].reverse();
+                }
+                2 | 3 => w.reverse(),
+                _ => {}
+            }
+        }
     }
 }
 

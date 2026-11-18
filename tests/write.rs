@@ -515,3 +515,57 @@ fn trace_list_pack_handler_error_stops() {
     assert_eq!(seg.num_samples(), 1000 - first_record_samples);
     assert_eq!(seg.samples.as_ref().unwrap().as_i32().unwrap()[0], first_record_samples as i32);
 }
+
+/// Repack the first record of a file to the given format, parse the result and confirm the
+/// decoded samples match the original.
+fn repack_roundtrip(path: &str, format: FormatVersion) {
+    let mut msr = MsReader::open(data(path), ParseFlags::UNPACK_DATA)
+        .unwrap()
+        .next_record()
+        .unwrap()
+        .unwrap();
+    assert!(msr.sample_count > 0, "{path}: no samples unpacked");
+
+    // v2 record length must be a power of 2
+    if format == FormatVersion::V2 && msr.format_version == Some(FormatVersion::V3) {
+        msr.reclen = Some(1024);
+    }
+
+    let rec = msr.repack(format).unwrap();
+    let parsed = Record::parse(&rec, ParseFlags::UNPACK_DATA).unwrap();
+    assert_eq!(parsed.format_version, Some(format), "{path}");
+    assert_eq!(parsed.encoding, msr.encoding, "{path}");
+    assert_eq!(parsed.sample_type(), msr.sample_type(), "{path}");
+    assert_eq!(parsed.sample_count, msr.sample_count, "{path}");
+    assert_eq!(parsed.samples, msr.samples, "{path}: repacked samples do not match");
+}
+
+#[test]
+fn repack_v3_payload_byteorder() {
+    for path in [
+        "reference-testdata-int16.mseed2",
+        "reference-testdata-int32.mseed2",
+        "reference-testdata-float32.mseed2",
+        "reference-testdata-float64.mseed2",
+        "reference-testdata-steim1-LE.mseed2",
+        "reference-testdata-steim2-LE.mseed2",
+        "reference-testdata-text.mseed2",
+    ] {
+        repack_roundtrip(path, FormatVersion::V3);
+    }
+}
+
+#[test]
+fn repack_v2_payload_byteorder() {
+    for path in [
+        "reference-testdata-int16.mseed3",
+        "reference-testdata-int32.mseed3",
+        "reference-testdata-float32.mseed3",
+        "reference-testdata-float64.mseed3",
+        "reference-testdata-steim2.mseed3",
+        "reference-testdata-steim1-LE.mseed2",
+        "reference-testdata-steim2-LE.mseed2",
+    ] {
+        repack_roundtrip(path, FormatVersion::V2);
+    }
+}

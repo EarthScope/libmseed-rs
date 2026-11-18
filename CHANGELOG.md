@@ -5,6 +5,9 @@ versioning: [SemVer](https://semver.org/).
 
 ## [Unreleased]
 
+### Fixed
+- Convert the encoded data byte order when repacking records between formats
+
 ## [0.1.2] - 2026-11-17
 
 ### Added
